@@ -1,6 +1,6 @@
 // Main screen, read aloud, click-to-hear, places, and the Settings and Color choices screens.
 (function () {
-  const VERSION = '0.1.0';
+  const VERSION = '0.1.1';
   const HOLD_MS = 2000; // how long Settings must be held to open
 
   // Complete color combinations offered on the Color choices screen.
@@ -234,7 +234,7 @@
       li.textContent = p.name;
       return li;
     }));
-    $('version').textContent = `Weather ${VERSION} · Prototype with sample weather`;
+    $('version').textContent = `Weather ${VERSION} · Sample weather`;
   }
 
   document.addEventListener('click', e => {
