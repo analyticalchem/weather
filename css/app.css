@@ -1,0 +1,423 @@
+/* Weather — styles.
+   Every size is in rem, so the in-app text size setting (--scale on <html>) and Chrome's own zoom
+   both scale the whole app. Every color comes from the theme variables below; each color pair
+   meets WCAG AAA contrast (7:1 or better). */
+
+:root {
+  --scale: 1;
+  font-size: calc(125% * var(--scale));
+
+  --bg: #000000;
+  --fg: #FFFFFF;
+  --temp: #FFFFFF;
+  --rain: #FFFFFF;
+  --accent: #FFFFFF;
+  --on-accent: #000000;
+
+  /* The page's own text color. Color-test swatches restyle themselves but keep this for their frames. */
+  --frame: var(--fg);
+}
+
+/* --- Themes: data-bg is the Background setting, data-palette is the color set (or "none"). --- */
+
+[data-bg="dark"]  { --bg: #000000; --fg: #FFFFFF; --temp: #FFFFFF; --rain: #FFFFFF; --accent: #FFFFFF; --on-accent: #000000; }
+[data-bg="light"] { --bg: #FFFFFF; --fg: #000000; --temp: #000000; --rain: #000000; --accent: #000000; --on-accent: #FFFFFF; }
+
+/* Cool: lavender temperature, cyan rain */
+[data-bg="dark"][data-palette="cool"]  { --temp: #C4B5FD; --rain: #00FFFF; --accent: #00FFFF; --on-accent: #000000; }
+[data-bg="light"][data-palette="cool"] { --temp: #3B1F8F; --rain: #004466; --accent: #004466; --on-accent: #FFFFFF; }
+
+/* Aqua: cyan text on black, navy text on white */
+[data-bg="dark"][data-palette="aqua"]  { --fg: #00FFFF; --temp: #00FFFF; --rain: #FFFFFF; --accent: #00FFFF; --on-accent: #000000; }
+[data-bg="light"][data-palette="aqua"] { --fg: #00264D; --temp: #00264D; --rain: #004466; --accent: #00264D; --on-accent: #FFFFFF; }
+
+/* Yellow: yellow on black, black on cream */
+[data-bg="dark"][data-palette="yellow"]  { --fg: #FFFF00; --temp: #FFFF00; --rain: #00FFFF; --accent: #FFFF00; --on-accent: #000000; }
+[data-bg="light"][data-palette="yellow"] { --bg: #FFFFC8; --fg: #000000; --temp: #000000; --rain: #004466; --accent: #000000; --on-accent: #FFFFC8; }
+
+/* --- Base --- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", Verdana, Arial, sans-serif;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, p, ul { margin: 0; font-size: inherit; font-weight: inherit; }
+
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+svg { display: block; flex: none; }
+
+[hidden] { display: none !important; }
+
+:focus { outline: none; }
+:focus-visible { outline: 0.3rem solid var(--frame); outline-offset: 0.25rem; }
+
+.view {
+  max-width: 120rem;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+}
+
+/* --- Things you can click to hear --- */
+
+.readable { border-radius: 0.5rem; cursor: default; }
+.tap-read .readable { cursor: pointer; }
+.readable.is-reading { outline: 0.45rem solid var(--frame); outline-offset: 0.15rem; }
+
+/* --- Shared buttons --- */
+
+.arrow-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.25rem;
+  min-height: 4.25rem;
+  border-radius: 0.6rem;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.arrow-btn svg { width: 2.75rem; height: 2.75rem; }
+.arrow-btn polygon { fill: currentColor; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+
+/* At the first or last day the arrow turns hollow: still high contrast, clearly "nothing more this way". */
+.arrow-btn[aria-disabled="true"] {
+  background: transparent;
+  color: var(--fg);
+  box-shadow: inset 0 0 0 0.2rem var(--fg);
+  cursor: default;
+}
+.arrow-btn[aria-disabled="true"] polygon { fill: none; }
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 4rem;
+  padding: 0.8rem 1.5rem;
+  border-radius: 0.6rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 1.6rem;
+  line-height: 1.1;
+  text-align: center;
+}
+.action-btn svg { width: 2.4rem; height: 2.4rem; }
+
+/* A thick outline shows what the mouse is over (mouse and trackpad only, not touch). */
+@media (hover: hover) {
+  .arrow-btn:not([aria-disabled="true"]):hover,
+  .action-btn:hover,
+  .choice:hover,
+  .hold-btn:hover,
+  .swatch:hover {
+    outline: 0.25rem solid var(--frame);
+    outline-offset: 0.2rem;
+  }
+  .tap-read .readable:not(.is-reading):hover {
+    outline: 0.2rem solid var(--frame);
+    outline-offset: 0.15rem;
+  }
+}
+
+/* --- Place bar --- */
+
+.place-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+.single-place .place-bar .arrow-btn { visibility: hidden; }
+
+.place-title { text-align: center; }
+
+.place-name {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  text-align: center;
+}
+.place-name-text { font-size: 2.4rem; line-height: 1.1; overflow-wrap: anywhere; }
+.place-count { margin-top: 0.25rem; font-size: 1.1rem; }
+
+/* --- Right now --- */
+
+.now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 2.5rem;
+  padding: 1.25rem 0;
+  border-top: 0.25rem solid var(--fg);
+}
+
+.now-temp {
+  padding: 0 0.25rem;
+  font-size: 7rem;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+
+.now-hilo {
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0.5rem;
+  font-size: 2.5rem;
+  line-height: 1.15;
+}
+
+.now-rain { display: flex; flex-direction: column; padding: 0.25rem 0.5rem; }
+.now-rain-label { font-size: 1.3rem; }
+.now-rain-value { font-size: 2.5rem; line-height: 1.1; color: var(--rain); }
+
+.read-btn { margin-left: auto; min-width: 14rem; font-size: 1.7rem; }
+
+/* --- Charts --- */
+
+.chart {
+  padding: 1rem 0 0.75rem;
+  border-top: 0.25rem solid var(--fg);
+}
+
+.chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.chart-title { font-size: 1.7rem; }
+.day-range { padding: 0.2rem 0.4rem; font-size: 1.3rem; }
+
+.chart-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.track {
+  --visible: 3;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc(100% / var(--visible));
+  overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.track.dragging, .track.dragging * { cursor: grabbing !important; }
+
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 0.4rem 0;
+  cursor: grab;
+}
+.tap-read .track .day { cursor: pointer; }
+
+/* The chart clips its edges, so outlines on days are drawn inside the day. */
+.track .day.is-reading { outline-offset: -0.45rem; }
+@media (hover: hover) {
+  .tap-read .track .day:not(.is-reading):hover { outline-offset: -0.2rem; }
+}
+
+.day-name { font-size: 1.5rem; white-space: nowrap; }
+
+.temp-day .day-name { margin-bottom: 0.4rem; }
+.temp-gap { flex: none; }
+.temp-num { font-size: 2.3rem; font-weight: 800; line-height: 1.1; }
+.temp-bar {
+  flex: none;
+  width: 1.75rem;
+  margin: 0.3rem 0;
+  border-radius: 0.5rem;
+  background: var(--temp);
+}
+
+.rain-plot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  height: calc(var(--rain-plot, 5.5rem) + 3rem);
+}
+.rain-num { margin-bottom: 0.3rem; font-size: 2.3rem; font-weight: 800; line-height: 1.1; }
+.rain-bar { flex: none; width: 55%; max-width: 5.5rem; background: var(--rain); }
+/* Days sit edge to edge, so each day's piece of baseline joins into one line. */
+.rain-base { align-self: stretch; height: 0.3rem; background: var(--fg); }
+.rain-day .day-name { margin-top: 0.4rem; }
+
+/* --- Settings button: far from everything else, and it needs a press and hold --- */
+
+.settings-zone {
+  display: flex;
+  justify-content: center;
+  margin-top: 5rem;
+  padding-top: 1.5rem;
+  border-top: 0.25rem solid var(--fg);
+}
+
+.hold-btn {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem 2.5rem 1.5rem;
+  border: 0.25rem solid var(--fg);
+  border-radius: 0.75rem;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.hold-label { display: flex; align-items: center; gap: 0.6rem; font-size: 1.6rem; }
+.hold-label svg { width: 2.2rem; height: 2.2rem; }
+.hold-hint { font-size: 1.15rem; }
+
+/* Fills left to right while held. --hold-ms is set from js/app.js so the bar and the timer agree. */
+.hold-fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 0.6rem;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.15s ease-out;
+}
+.hold-btn.holding .hold-fill {
+  transform: scaleX(1);
+  transition: transform var(--hold-ms, 2s) linear;
+}
+
+/* --- Settings and color screens --- */
+
+.panel-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  background: var(--bg);
+  border-bottom: 0.25rem solid var(--fg);
+}
+.panel-top h1 { font-size: 2.4rem; }
+
+.panel-bottom { display: flex; justify-content: center; padding-top: 2rem; }
+
+.setting { padding: 1.5rem 0; border-bottom: 0.15rem solid var(--fg); }
+.setting-title { margin-bottom: 0.6rem; font-size: 1.7rem; }
+.setting-title .readable { padding: 0.15rem 0.3rem; }
+.setting-note { max-width: 40em; margin-bottom: 0.9rem; font-size: 1.2rem; line-height: 1.4; }
+
+.choices, .stepper { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
+
+.choice {
+  min-width: 9rem;
+  min-height: 4rem;
+  padding: 0.7rem 1.4rem;
+  border: 0.25rem solid var(--fg);
+  border-radius: 0.6rem;
+  font-size: 1.5rem;
+  text-align: center;
+}
+.choice[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+/* The check mark means "chosen" without relying on color. */
+.choice[aria-pressed="true"]::before { content: "\2713\00A0" / ""; }
+
+.step-value { min-width: 9rem; font-size: 1.6rem; text-align: center; }
+
+.size-sample { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 2rem; margin-top: 1rem; }
+.size-sample-big { font-size: 7rem; font-weight: 800; line-height: 0.95; }
+.size-sample-mid { font-size: 2.5rem; }
+
+.places-list { margin-bottom: 0.8rem; padding: 0; list-style: none; font-size: 1.6rem; }
+.places-list li { padding: 0.3rem 0; }
+
+.version { padding-top: 1.5rem; font-size: 1.1rem; }
+
+.intro { max-width: 40em; margin: 1.25rem 0 1.5rem; font-size: 1.5rem; line-height: 1.4; }
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: 1.5rem;
+}
+
+/* Each swatch carries its own data-bg / data-palette, so it shows that theme no matter which is active. */
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 0.25rem solid var(--frame);
+  border-radius: 1rem;
+  background: var(--bg);
+  color: var(--fg);
+}
+.swatch[aria-pressed="true"] { outline: 0.5rem solid var(--frame); outline-offset: 0.3rem; }
+.sw-sample { display: flex; align-items: flex-end; gap: 1.25rem; }
+.sw-num { font-size: 4.5rem; font-weight: 800; line-height: 0.95; }
+.sw-temp { width: 1.6rem; height: 4rem; border-radius: 0.4rem; background: var(--temp); }
+.sw-rain { width: 3rem; height: 2.5rem; background: var(--rain); }
+.sw-name { font-size: 1.5rem; }
+.sw-chosen {
+  padding: 0.25rem 0.7rem;
+  border-radius: 0.4rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 1.2rem;
+  visibility: hidden;
+}
+.swatch[aria-pressed="true"] .sw-chosen { visibility: visible; }
+
+/* --- Narrow screens (phones, small windows) --- */
+
+@media (max-width: 40rem) {
+  .view { padding-inline: 1rem; }
+  .read-btn { width: 100%; margin-left: 0; }
+}
