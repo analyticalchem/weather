@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en" data-bg="dark" data-palette="none">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weather</title>
+  <meta name="description" content="Large, high-contrast weather for people with low vision.">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Applies the saved theme and text size before the page is drawn. -->
+  <script src="js/settings.js"></script>
+</head>
+<body>
+
+  <!-- ===================== Main screen ===================== -->
+  <main id="view-main" class="view">
+
+    <header class="place-bar">
+      <button type="button" class="arrow-btn" id="place-prev" aria-label="Previous place">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="17,3 5,12 17,21"/></svg>
+      </button>
+      <h1 class="place-title">
+        <button type="button" class="place-name readable" id="place-name">
+          <span class="place-name-text" id="place-name-text"></span>
+          <span class="place-count" id="place-count"></span>
+        </button>
+      </h1>
+      <button type="button" class="arrow-btn" id="place-next" aria-label="Next place">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
+      </button>
+    </header>
+
+    <section class="now" aria-label="Right now">
+      <button type="button" class="now-temp readable" id="now-temp"></button>
+      <button type="button" class="now-hilo readable" id="now-hilo">
+        <span id="now-high"></span>
+        <span id="now-low"></span>
+      </button>
+      <button type="button" class="now-rain readable" id="now-rain">
+        <span class="now-rain-label">Rain</span>
+        <span class="now-rain-value" id="now-rain-value"></span>
+      </button>
+      <button type="button" class="action-btn read-btn" id="read-btn">
+        <svg class="icon-speak" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2 9h4.5L12 4.5v15L6.5 15H2z" fill="currentColor"/>
+          <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9.2 9.2 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+        <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true" hidden>
+          <rect x="4.5" y="4.5" width="15" height="15" rx="2" fill="currentColor"/>
+        </svg>
+        <span id="read-btn-text">Read aloud</span>
+      </button>
+    </section>
+
+    <section class="chart" aria-labelledby="temp-title">
+      <div class="chart-head">
+        <h2 class="chart-title" id="temp-title">Temperature</h2>
+        <button type="button" class="day-range readable" id="temp-range"></button>
+      </div>
+      <div class="chart-body">
+        <button type="button" class="arrow-btn" data-days="-1" aria-label="Earlier days">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="17,3 5,12 17,21"/></svg>
+        </button>
+        <div class="track" id="temp-track" role="group" aria-label="Temperature for each day. Left and right arrow keys move between days."></div>
+        <button type="button" class="arrow-btn" data-days="1" aria-label="Later days">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="chart" aria-labelledby="rain-title">
+      <div class="chart-head">
+        <h2 class="chart-title" id="rain-title">Chance of rain</h2>
+        <button type="button" class="day-range readable" id="rain-range"></button>
+      </div>
+      <div class="chart-body">
+        <button type="button" class="arrow-btn" data-days="-1" aria-label="Earlier days">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="17,3 5,12 17,21"/></svg>
+        </button>
+        <div class="track" id="rain-track" role="group" aria-label="Chance of rain for each day. Left and right arrow keys move between days."></div>
+        <button type="button" class="arrow-btn" data-days="1" aria-label="Later days">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <footer class="settings-zone">
+      <button type="button" class="hold-btn" id="settings-btn" aria-label="Settings. Press and hold to open.">
+        <span class="hold-label">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <g fill="currentColor">
+              <rect x="10" y="1" width="4" height="22" rx="1"/>
+              <rect x="10" y="1" width="4" height="22" rx="1" transform="rotate(45 12 12)"/>
+              <rect x="10" y="1" width="4" height="22" rx="1" transform="rotate(90 12 12)"/>
+              <rect x="10" y="1" width="4" height="22" rx="1" transform="rotate(135 12 12)"/>
+              <circle cx="12" cy="12" r="7.5"/>
+            </g>
+            <circle cx="12" cy="12" r="3" style="fill: var(--bg)"/>
+          </svg>
+          Settings
+        </span>
+        <span class="hold-hint" id="settings-hint">Press and hold</span>
+        <span class="hold-fill" aria-hidden="true"></span>
+      </button>
+    </footer>
+  </main>
+
+  <!-- ===================== Settings ===================== -->
+  <section id="view-settings" class="view" aria-labelledby="settings-title" hidden>
+    <div class="panel-top">
+      <h1 id="settings-title" tabindex="-1">Settings</h1>
+      <button type="button" class="action-btn" data-go="main">Done</button>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="size">Text size</button></h2>
+      <div class="stepper">
+        <button type="button" class="action-btn" id="size-down">Smaller</button>
+        <p class="step-value" id="size-value" aria-live="polite"></p>
+        <button type="button" class="action-btn" id="size-up">Larger</button>
+      </div>
+      <div class="size-sample" aria-hidden="true">
+        <span class="size-sample-big">72&deg;</span>
+        <span class="size-sample-mid">High 80&deg;</span>
+      </div>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="bg">Background</button></h2>
+      <div class="choices" role="group" aria-label="Background">
+        <button type="button" class="choice" data-setting="bg" data-value="dark">Dark</button>
+        <button type="button" class="choice" data-setting="bg" data-value="light">Light</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="color">Color</button></h2>
+      <p class="setting-note">Adds high-contrast color to the charts and buttons.</p>
+      <div class="choices" role="group" aria-label="Color">
+        <button type="button" class="choice" data-setting="color" data-value="true">On</button>
+        <button type="button" class="choice" data-setting="color" data-value="false">Off</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="colors">Color choices</button></h2>
+      <p class="setting-note">See six high-contrast color combinations side by side and pick the easiest to read.</p>
+      <button type="button" class="action-btn" data-go="colors">Compare colors</button>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="rate">Reading speed</button></h2>
+      <div class="stepper">
+        <button type="button" class="action-btn" id="rate-down">Slower</button>
+        <p class="step-value" id="rate-value" aria-live="polite"></p>
+        <button type="button" class="action-btn" id="rate-up">Faster</button>
+        <button type="button" class="action-btn" id="rate-test">Test voice</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="readAll">Read aloud button reads</button></h2>
+      <div class="choices" role="group" aria-label="Read aloud button reads">
+        <button type="button" class="choice" data-setting="readAll" data-value="today">Today only</button>
+        <button type="button" class="choice" data-setting="readAll" data-value="week">Whole week</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="tapToRead">Read items when clicked</button></h2>
+      <p class="setting-note">Click a temperature, a day, or the town name to hear it. Click it again to stop.</p>
+      <div class="choices" role="group" aria-label="Read items when clicked">
+        <button type="button" class="choice" data-setting="tapToRead" data-value="true">On</button>
+        <button type="button" class="choice" data-setting="tapToRead" data-value="false">Off</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="sayTown">Say the town name when switching places</button></h2>
+      <div class="choices" role="group" aria-label="Say the town name when switching places">
+        <button type="button" class="choice" data-setting="sayTown" data-value="true">On</button>
+        <button type="button" class="choice" data-setting="sayTown" data-value="false">Off</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="places">Places</button></h2>
+      <ul class="places-list" id="places-list"></ul>
+      <p class="setting-note">These are sample places for testing. Adding your own places comes with live weather.</p>
+    </div>
+
+    <div class="setting">
+      <button type="button" class="action-btn" id="reset-btn">Reset all settings</button>
+    </div>
+
+    <p class="version" id="version"></p>
+    <div class="panel-bottom">
+      <button type="button" class="action-btn" data-go="main">Done</button>
+    </div>
+  </section>
+
+  <!-- ===================== Color choices ===================== -->
+  <section id="view-colors" class="view" aria-labelledby="colors-title" hidden>
+    <div class="panel-top">
+      <h1 id="colors-title" tabindex="-1">Color choices</h1>
+      <button type="button" class="action-btn" data-go="settings">Done</button>
+    </div>
+    <p class="intro">Click the one that's easiest to read. The whole app changes to match.</p>
+    <div class="swatches" id="swatches"></div>
+    <div class="panel-bottom">
+      <button type="button" class="action-btn" data-go="settings">Done</button>
+    </div>
+  </section>
+
+  <script src="js/words.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/speech.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
