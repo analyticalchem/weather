@@ -27,7 +27,8 @@ Weather.settings = (function () {
     rate: 2,             // index into RATE_STEPS
     readAll: 'today',    // what the Read aloud button covers: 'today' | 'week'
     tapToRead: true,     // click an item to hear it
-    sayTown: false       // say the town name when switching places
+    sayTown: false,      // say the town name when switching places
+    readAlerts: false    // read each new weather warning aloud once, without a click
   };
 
   const listeners = [];
@@ -47,7 +48,8 @@ Weather.settings = (function () {
       rate: clampIndex(s.rate, RATE_STEPS, DEFAULTS.rate),
       readAll: s.readAll === 'week' ? 'week' : 'today',
       tapToRead: s.tapToRead !== false,
-      sayTown: s.sayTown === true
+      sayTown: s.sayTown === true,
+      readAlerts: s.readAlerts === true
     };
   }
 

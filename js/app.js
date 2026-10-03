@@ -1,6 +1,5 @@
 // Main screen, read aloud, click-to-hear, places, and the Settings and Color choices screens.
 (function () {
-  const VERSION = '0.1.1';
   const HOLD_MS = 2000; // how long Settings must be held to open
 
   // Complete color combinations offered on the Color choices screen.
@@ -14,16 +13,28 @@
   ];
 
   const W = window.Weather;
+  const VERSION = W.VERSION; // set in js/version.js
   const settings = W.settings;
   const speech = W.speech;
   const words = W.words;
   const $ = id => document.getElementById(id);
 
-  const places = W.sampleData.places;
-  const forecasts = W.sampleData.forecasts;
+  const STALE_MS = 2 * 60 * 60 * 1000;  // an older forecast says how old it is
+  const REFRESH_MS = 30 * 60 * 1000;    // quiet refresh while the app is open
+  const RETRY_MS = 5 * 60 * 1000;       // after a failed refresh, try again this often
+  const REOPEN_MS = 10 * 60 * 1000;     // coming back to the app refreshes anything older than this
+  const ALERT_CHECK_MS = 5 * 60 * 1000; // weather warnings are checked this often while the app is open
+  const ALERT_STALE_MS = 30 * 60 * 1000; // after this long without a check, the notice says so
+
+  let places = W.places.all();
   let placeIndex = 0; // always opens on the first ("home") place
   let labels = [];
   let currentView = 'main';
+  let shown = { fetchedAt: 0, firstDate: null }; // the forecast on screen
+  let chartsPlaceId = null; // the place the charts were last drawn for
+  let renderLater = false;  // a refresh that arrived while something was being read
+  let shownAlerts = '';     // the alerts on screen, so the banner is rebuilt only when they change
+  let announceLater = false; // new warnings waiting for the current reading to finish
 
   const charts = W.charts.create({
     tempTrack: $('temp-track'),
@@ -41,47 +52,239 @@
 
   // --- Main screen ------------------------------------------------------------------------------
 
-  function render() {
-    const place = places[placeIndex];
-    const forecast = forecasts[place.id];
-    const today = forecast.days[0];
-    labels = words.dayLabels(forecast.days.length);
+  const currentPlace = () => places[placeIndex];
+
+  // Writing the same text again would make screen readers repeat it.
+  function setText(el, text) {
+    if (el.textContent !== text) el.textContent = text;
+  }
+
+  // The notice says only what the person needs to know: the weather is on its way, the forecast
+  // is old, the weather service can't be reached, or warnings can't be checked.
+  function forecastNotice(place, entry) {
+    const status = W.forecast.status(place.id);
+    if (!entry) return status.error ? words.noForecast(status.error) : words.loading(place);
+    const age = Date.now() - entry.fetchedAt;
+    if (age <= STALE_MS) return '';
+    if (status.loading && !status.error) return ''; // a quiet refresh is already on its way
+    return words.oldForecast(age, status.error);
+  }
+
+  function alertsUnchecked(place) {
+    const status = W.alerts.status(place.id);
+    return !status.unsupported && !!status.error && Date.now() - status.checked > ALERT_STALE_MS;
+  }
+
+  function noticeText(place, entry) {
+    return [forecastNotice(place, entry), alertsUnchecked(place) ? words.alertsUnchecked : '']
+      .filter(Boolean).join(' ');
+  }
+
+  const ALERT_ICON =
+    '<svg class="alert-icon" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M12 1.5 23.2 21.5H.8z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>' +
+    '<rect x="10.5" y="7.5" width="3" height="8" rx="1.2" style="fill: var(--accent)"/>' +
+    '<circle cx="12" cy="18.2" r="1.7" style="fill: var(--accent)"/></svg>';
+
+  // Severe weather alerts: one large, inverted banner each, under the town name. Silent: clicking
+  // one reads it (warning, how long it lasts, and what to do), and Read aloud includes them.
+  function renderAlerts() {
+    const place = currentPlace();
+    const list = W.alerts.get(place.id).map(alert => ({ alert, until: words.until(alert.ends, place.timezone) }));
+    const key = place.id + JSON.stringify(list.map(x => [x.alert.id, x.until]));
+    if (key === shownAlerts) return;
+    shownAlerts = key;
+    $('alerts').replaceChildren(...list.map(({ alert, until }) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'alert readable';
+      b.dataset.alertId = alert.id;
+      b.innerHTML = ALERT_ICON;
+      const text = document.createElement('span');
+      text.className = 'alert-text';
+      const event = document.createElement('span');
+      event.className = 'alert-event';
+      event.textContent = alert.event;
+      text.append(event);
+      if (until) {
+        const ends = document.createElement('span');
+        ends.className = 'alert-until';
+        ends.textContent = until.charAt(0).toUpperCase() + until.slice(1);
+        text.append(ends);
+      }
+      b.append(text);
+      readable(b, words.alertSay(alert, until));
+      return b;
+    }));
+  }
+
+  // "Read new warnings aloud" (off by default): each new warning for the place on screen is read
+  // once. It waits for the first click or key press since the app opened, so the app never starts
+  // talking by itself at launch; until then the banner just shows, and the next check tries again.
+  function announceAlerts() {
+    if (!settings.get().readAlerts) return;
+    if (speech.isSpeaking()) {
+      announceLater = true; // after the current reading finishes
+      return;
+    }
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+    const place = currentPlace();
+    const fresh = W.alerts.get(place.id).filter(a => !W.alerts.isAnnounced(place.id, a));
+    if (!fresh.length) return;
+    const banners = [...$('alerts').children];
+    const parts = fresh.map((alert, i) => {
+      const until = words.until(alert.ends, place.timezone);
+      return {
+        text: i === 0 ? words.alertNew(place, alert, until) : words.alertSay(alert, until),
+        els: [banners.find(b => b.dataset.alertId === alert.id)]
+      };
+    });
+    if (speech.speak(parts)) W.alerts.markAnnounced(place.id, fresh);
+  }
+
+  // A warning that's been heard by clicking it counts as read.
+  $('alerts').addEventListener('click', e => {
+    const b = e.target.closest('.alert');
+    const alert = b && W.alerts.get(currentPlace().id).find(a => a.id === b.dataset.alertId);
+    if (alert && settings.get().tapToRead) W.alerts.markAnnounced(currentPlace().id, [alert]);
+  });
+
+  function updateNotice() {
+    const place = currentPlace();
+    const text = noticeText(place, W.forecast.get(place.id));
+    const notice = $('notice');
+    setText(notice, text);
+    if (text) readable(notice, text);
+    notice.hidden = !text;
+  }
+
+  // keepPosition: new numbers for the place already on screen, so the charts stay where they are.
+  function render(keepPosition) {
+    const place = currentPlace();
+    const entry = W.forecast.get(place.id);
+    shown = { fetchedAt: entry ? entry.fetchedAt : 0, firstDate: entry ? entry.forecast.days[0].date : null };
 
     document.body.classList.toggle('single-place', places.length < 2);
-    $('place-name-text').textContent = place.name;
-    $('place-count').textContent =
-      (places.length > 1 ? `Place ${placeIndex + 1} of ${places.length} · ` : '') + 'Sample weather';
+    document.body.classList.toggle('no-forecast', !entry);
+    setText($('place-name-text'), place.name);
+    setText($('place-count'), places.length > 1 ? `Place ${placeIndex + 1} of ${places.length}` : '');
     readable($('place-name'), words.place(place, placeIndex, places.length));
+    renderAlerts();
+    updateNotice();
+    if (!entry) return;
 
-    $('now-temp').textContent = words.temp(forecast.current.temp);
+    const forecast = entry.forecast;
+    const today = forecast.days[0];
+    labels = words.dayLabels(forecast.days.map(d => d.date));
+    setText($('now-temp'), words.temp(forecast.current.temp));
     readable($('now-temp'), words.nowTemp(forecast.current));
-    $('now-high').textContent = 'High ' + words.temp(today.high);
-    $('now-low').textContent = 'Low ' + words.temp(today.low);
+    setText($('now-high'), 'High ' + words.temp(today.high));
+    setText($('now-low'), 'Low ' + words.temp(today.low));
     readable($('now-hilo'), words.hiLo(today));
-    $('now-rain-value').textContent = today.rain + '%';
+    setText($('now-rain-value'), today.rain + '%');
     readable($('now-rain'), words.rainToday(today));
 
-    charts.render(forecast.days, labels);
+    // Keep the chart position only if the charts already show this place.
+    charts.render(forecast.days, labels, keepPosition && chartsPlaceId === place.id);
+    chartsPlaceId = place.id;
   }
 
   function switchPlace(dir) {
     speech.stop();
     placeIndex = (placeIndex + dir + places.length) % places.length;
     render();
-    if (settings.get().sayTown) speech.speak(places[placeIndex].spokenName + '.', { els: [$('place-name')] });
+    refreshPlaces(REOPEN_MS, false);
+    refreshAlerts(ALERT_CHECK_MS, false);
+    if (settings.get().sayTown) speech.speak(currentPlace().spokenName + '.', { els: [$('place-name')] });
+    announceAlerts(); // waits for the town name, if that's being said
   }
 
-  // Each part is outlined on screen while it is being read.
+  // --- Keeping the forecast up to date, quietly -----------------------------------------------------
+
+  // Fetches every place whose forecast is older than maxAgeMs. After a failure it waits RETRY_MS
+  // before trying again, unless force is set (the app was reopened or the internet came back).
+  function refreshPlaces(maxAgeMs, force) {
+    const now = Date.now();
+    places.forEach(place => {
+      const entry = W.forecast.get(place.id);
+      const status = W.forecast.status(place.id);
+      if (status.loading) return;
+      const old = !entry || now - entry.fetchedAt >= maxAgeMs;
+      const waited = force || !status.error || now - status.tried >= RETRY_MS;
+      if (old && waited) W.forecast.refresh(place);
+    });
+  }
+
+  // Weather warnings are checked more often than the forecast, with the same rules for retrying.
+  function refreshAlerts(maxAgeMs, force) {
+    const now = Date.now();
+    places.forEach(place => {
+      const status = W.alerts.status(place.id);
+      if (status.loading || status.unsupported) return;
+      const old = now - status.checked >= maxAgeMs;
+      const waited = force || !status.error || now - status.tried >= RETRY_MS;
+      if (old && waited) W.alerts.refresh(place);
+    });
+  }
+
+  W.forecast.onChange(placeId => {
+    if (placeId !== currentPlace().id) return;
+    const entry = W.forecast.get(placeId);
+    if ((entry ? entry.fetchedAt : 0) === shown.fetchedAt) {
+      updateNotice(); // only the loading or error state changed
+    } else if (speech.isSpeaking()) {
+      renderLater = true; // don't change what's being read; update when reading stops
+    } else {
+      render(true);
+    }
+  });
+
+  W.alerts.onChange(placeId => {
+    if (placeId !== currentPlace().id) return;
+    updateNotice();
+    if (speech.isSpeaking()) {
+      renderLater = true;
+      announceLater = true;
+    } else {
+      renderAlerts();
+      announceAlerts();
+    }
+  });
+
+  // Once a minute: refresh anything due, drop warnings that have ended, keep "3 hours ago"
+  // current, and move on at midnight.
+  function tick() {
+    refreshPlaces(REFRESH_MS, false);
+    refreshAlerts(ALERT_CHECK_MS, false);
+    const entry = W.forecast.get(currentPlace().id);
+    const firstDate = entry ? entry.forecast.days[0].date : null;
+    if (speech.isSpeaking()) {
+      updateNotice();
+    } else if (firstDate !== shown.firstDate) {
+      render(true);
+    } else {
+      renderAlerts();
+      updateNotice();
+    }
+    announceAlerts(); // in case Chrome only now allows the app to speak
+  }
+
+  // Each part is outlined on screen while it is being read. Warnings come first.
   function summary() {
-    const place = places[placeIndex];
-    const forecast = forecasts[place.id];
+    const place = currentPlace();
+    const entry = W.forecast.get(place.id);
+    const notice = $('notice');
+    const parts = [{ text: place.spokenName + '.', els: [$('place-name')] }];
+    [...$('alerts').children].forEach(b => parts.push({ text: b.dataset.say, els: [b] }));
+    if (!notice.hidden) parts.push({ text: notice.dataset.say, els: [notice] });
+    if (!entry) return parts;
+    const forecast = entry.forecast;
     const today = forecast.days[0];
-    const parts = [
-      { text: place.spokenName + '.', els: [$('place-name')] },
+    parts.push(
       { text: words.nowTemp(forecast.current), els: [$('now-temp')] },
       { text: words.hiLo(today), els: [$('now-hilo')] },
       { text: words.rainToday(today), els: [$('now-rain')] }
-    ];
+    );
     if (settings.get().readAll === 'week') {
       forecast.days.forEach((day, i) => {
         if (i > 0) parts.push({ text: words.dayFull(day, labels[i]), els: charts.dayElements(i) });
@@ -93,7 +296,9 @@
   function toggleReadAloud() {
     if (speech.isSpeaking()) {
       speech.stop();
-    } else if (!speech.speak(summary())) {
+    } else if (speech.speak(summary())) {
+      W.alerts.markAnnounced(currentPlace().id, W.alerts.get(currentPlace().id)); // warnings were just read
+    } else {
       $('read-btn-text').textContent = 'No voice found';
       setTimeout(() => { if (!speech.isSpeaking()) $('read-btn-text').textContent = 'Read aloud'; }, 3000);
     }
@@ -105,6 +310,21 @@
     // SVG elements have no .hidden property, so toggle the attribute itself.
     document.querySelector('#read-btn .icon-speak').toggleAttribute('hidden', on);
     document.querySelector('#read-btn .icon-stop').toggleAttribute('hidden', !on);
+    // Speech also "stops" for a moment when a new item is clicked, so wait a tick to see whether
+    // something new started reading before redrawing.
+    if (!on && (renderLater || announceLater)) {
+      setTimeout(() => {
+        if (speech.isSpeaking()) return;
+        if (renderLater) {
+          renderLater = false;
+          render(true);
+        }
+        if (announceLater) {
+          announceLater = false;
+          announceAlerts();
+        }
+      }, 0);
+    }
   });
 
   // --- Click any item to hear it. Clicking the item being read stops it. -------------------------
@@ -177,9 +397,15 @@
     }
   }, true);
 
-  function showView(name) {
+  // Also used when part of a screen changes under the pointer (the place search opening, results appearing).
+  function guardClicks() {
     ignoreClicksUntil = performance.now() + SCREEN_CHANGE_GUARD_MS;
+  }
+
+  function showView(name) {
+    guardClicks();
     speech.stop();
+    const from = currentView;
     Object.keys(views).forEach(key => { views[key].hidden = key !== name; });
     currentView = name;
     window.scrollTo(0, 0);
@@ -187,6 +413,10 @@
       charts.refresh();
       $('place-name').focus({ preventScroll: true });
     } else if (name === 'settings') {
+      if (from === 'main') {
+        resetPlaces();
+        checkForUpdate();
+      }
       renderSettings();
       $('settings-title').focus({ preventScroll: true });
     } else {
@@ -215,6 +445,8 @@
       case 'tapToRead': return `Read items when clicked. Currently ${onOff(s.tapToRead)}.`;
       case 'sayTown': return `Say the town name when switching places. Currently ${onOff(s.sayTown)}.`;
       case 'places': return `Places. ${places.map(p => p.spokenName).join('. ')}.`;
+      case 'alerts': return 'Weather warnings. ' + $('alerts-note').textContent;
+      case 'readAlerts': return `Read new warnings aloud. Currently ${onOff(s.readAlerts)}.`;
       default: return '';
     }
   }
@@ -229,12 +461,9 @@
       b.setAttribute('aria-pressed', String(s[b.dataset.setting] === parseValue(b.dataset.value)));
     });
     document.querySelectorAll('[data-about]').forEach(b => readable(b, aboutSetting(b.dataset.about, s)));
-    $('places-list').replaceChildren(...places.map(p => {
-      const li = document.createElement('li');
-      li.textContent = p.name;
-      return li;
-    }));
-    $('version').textContent = `Weather ${VERSION} · Sample weather`;
+    renderPlaces();
+    $('version').textContent = `Weather ${VERSION}`;
+    showUpdateNote();
   }
 
   document.addEventListener('click', e => {
@@ -270,7 +499,225 @@
     settings.reset();
   });
 
-  settings.onChange(() => {
+  // --- Settings: places ----------------------------------------------------------------------------
+
+  let changing = null;        // id of the place being changed, or null when adding a place
+  let searchOpener = null;    // the button that opened the search, for returning focus
+  let searchRun = 0;          // a newer search makes the results of an older one stale
+  let results = [];
+  const removeArm = { id: null, timer: 0 };
+
+  // Confirmations show under the list, and are also read out when click-to-hear is on.
+  function placeMessage(text) {
+    $('place-status').textContent = text;
+    if (text && settings.get().tapToRead) speech.speak(text);
+  }
+
+  function placeButton(label, action, place, disabled) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'action-btn';
+    b.textContent = label;
+    b.dataset.placeAction = action;
+    b.dataset.placeId = place.id;
+    b.setAttribute('aria-label', `${label}, ${place.name}`);
+    if (disabled) b.setAttribute('aria-disabled', 'true');
+    return b;
+  }
+
+  function renderPlaces() {
+    $('places-list').replaceChildren(...places.map((p, i) => {
+      const li = document.createElement('li');
+      li.className = 'place-row';
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.className = 'place-row-name readable';
+      name.textContent = `${i + 1}. ${p.name}`;
+      readable(name, `${i + 1}. ${p.spokenName}.`);
+      const actions = document.createElement('div');
+      actions.className = 'place-actions';
+      actions.append(
+        placeButton('Move up', 'up', p, i === 0),
+        placeButton('Move down', 'down', p, i === places.length - 1),
+        placeButton('Change', 'change', p, false),
+        placeButton(removeArm.id === p.id ? 'Press again to remove' : 'Remove', 'remove', p, places.length < 2));
+      li.append(name, actions);
+      return li;
+    }));
+  }
+
+  function focusPlaceButton(id, action) {
+    const b = $('places-list').querySelector(
+      `[data-place-id="${CSS.escape(id)}"][data-place-action="${action}"]`);
+    if (b) b.focus();
+  }
+
+  // Remove asks for a second press, like Reset, so a place can't be lost by accident.
+  function disarmRemove() {
+    clearTimeout(removeArm.timer);
+    const id = removeArm.id;
+    removeArm.id = null;
+    const b = id && $('places-list').querySelector(`[data-place-id="${CSS.escape(id)}"][data-place-action="remove"]`);
+    if (b) {
+      b.textContent = 'Remove';
+      b.setAttribute('aria-label', `Remove, ${W.places.get(id).name}`);
+    }
+  }
+
+  function armRemove(b, place) {
+    disarmRemove();
+    removeArm.id = place.id;
+    removeArm.timer = setTimeout(disarmRemove, 4000);
+    b.textContent = 'Press again to remove';
+    b.setAttribute('aria-label', `Press again to remove, ${place.name}`);
+  }
+
+  $('places-list').addEventListener('click', e => {
+    const b = e.target.closest('[data-place-action]');
+    const place = b && W.places.get(b.dataset.placeId);
+    if (!place) return;
+    const action = b.dataset.placeAction;
+    if (action !== 'remove' || removeArm.id !== place.id) disarmRemove();
+    if (b.getAttribute('aria-disabled') === 'true') {
+      if (action === 'remove') placeMessage(words.lastPlace);
+      return;
+    }
+    if (action === 'up' || action === 'down') {
+      W.places.move(place.id, action === 'up' ? -1 : 1);
+      focusPlaceButton(place.id, action);
+    } else if (action === 'change') {
+      openSearch(place, b);
+    } else if (removeArm.id !== place.id) {
+      armRemove(b, place);
+    } else {
+      disarmRemove();
+      closeSearch(false);
+      W.places.remove(place.id);
+      $('add-place').focus();
+      placeMessage(words.placeRemoved(place));
+    }
+  });
+
+  // --- Place search: type a town or ZIP code, then click the right match ---
+
+  function searchMessage(text) {
+    $('search-msg').textContent = text;
+  }
+
+  function openSearch(place, opener) {
+    guardClicks();
+    changing = place ? place.id : null;
+    searchOpener = opener;
+    searchRun++;
+    results = [];
+    $('search-title').textContent = place ? `Change ${place.name}` : 'Add a place';
+    $('place-query').value = '';
+    searchMessage('');
+    $('search-results').replaceChildren();
+    $('place-status').textContent = '';
+    $('place-search').hidden = false;
+    $('add-place').hidden = true;
+    // Show the whole search box, title included, below the sticky Settings bar.
+    $('place-search').scrollIntoView({ block: 'start' });
+    $('place-query').focus({ preventScroll: true });
+  }
+
+  // returnFocus: put focus back on the button that opened the search (or Add a place).
+  function closeSearch(returnFocus) {
+    if ($('place-search').hidden) return;
+    searchRun++;
+    changing = null;
+    $('place-search').hidden = true;
+    $('add-place').hidden = false;
+    if (returnFocus) (searchOpener && searchOpener.isConnected ? searchOpener : $('add-place')).focus();
+    searchOpener = null;
+  }
+
+  // Back to a closed search and no messages, each time Settings opens.
+  function resetPlaces() {
+    closeSearch(false);
+    disarmRemove();
+    $('place-status').textContent = '';
+  }
+
+  $('add-place').addEventListener('click', () => openSearch(null, $('add-place')));
+  $('search-cancel').addEventListener('click', () => closeSearch(true));
+
+  $('place-search').addEventListener('submit', async e => {
+    e.preventDefault();
+    const query = $('place-query').value.trim();
+    const run = ++searchRun;
+    results = [];
+    $('search-results').replaceChildren();
+    if (query.replace(/[\s,]/g, '').length < 2) {
+      searchMessage(words.searchShort);
+      return;
+    }
+    searchMessage(words.searching);
+    try {
+      const found = await W.places.search(query);
+      if (run !== searchRun) return;
+      if (!found.length) {
+        searchMessage(words.searchNone(query));
+        return;
+      }
+      results = found;
+      guardClicks();
+      $('search-results').replaceChildren(...found.map((r, i) => {
+        const li = document.createElement('li');
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'result-btn';
+        b.dataset.result = i;
+        b.textContent = r.label;
+        li.append(b);
+        return li;
+      }));
+      searchMessage(words.searchFound(found.length));
+    } catch (err) {
+      if (run === searchRun) searchMessage(words.searchFailed(err.message));
+    }
+  });
+
+  $('search-results').addEventListener('click', e => {
+    const b = e.target.closest('[data-result]');
+    const choice = b && results[b.dataset.result];
+    if (!choice) return;
+    const place = choice.place;
+    const old = changing && W.places.get(changing);
+    if (old && old.id === place.id) { // picked the same town again: nothing to change
+      closeSearch(true);
+      return;
+    }
+    if (W.places.get(place.id)) {
+      searchMessage(words.placeAlready(place));
+      return;
+    }
+    if (old) W.places.replace(old.id, place);
+    else W.places.add(place);
+    closeSearch(false);
+    $('add-place').focus();
+    placeMessage(old ? words.placeChanged(old, place) : words.placeAdded(place));
+  });
+
+  // A change in Settings: the main screen stays on the same place if it's still there.
+  W.places.onChange(list => {
+    const id = currentPlace().id;
+    places = list;
+    const i = places.findIndex(p => p.id === id);
+    placeIndex = i !== -1 ? i : Math.min(placeIndex, places.length - 1);
+    W.forecast.keepOnly(places.map(p => p.id));
+    W.alerts.keepOnly(places.map(p => p.id));
+    refreshPlaces(REFRESH_MS, true); // a new place gets its forecast and warnings right away
+    refreshAlerts(ALERT_CHECK_MS, true);
+    render();
+    if (currentView === 'settings') renderSettings();
+  });
+
+  let readAlertsWas = settings.get().readAlerts;
+  settings.onChange(s => {
+    if (s.readAlerts && !readAlertsWas) announceAlerts(); // turning it on reads any warnings not yet heard
+    readAlertsWas = s.readAlerts;
     if (currentView === 'settings') renderSettings();
     if (currentView === 'colors') renderSwatches();
     charts.refresh();
@@ -325,6 +772,7 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       if (speech.isSpeaking()) speech.stop();
+      else if (currentView === 'settings' && !$('place-search').hidden) closeSearch(true);
       else if (currentView === 'colors') showView('settings');
       else if (currentView === 'settings') showView('main');
     } else if (e.key === ' ' && currentView === 'main' && (e.target === document.body || e.target === document.documentElement)) {
@@ -332,6 +780,41 @@
       toggleReadAloud();
     }
   });
+
+  // --- Offline copy and updates ---------------------------------------------------------------------
+  // sw.js keeps a copy of the app so it opens without internet. A release reaches the app the next
+  // time it's opened. If one is published while the app is open, Settings says so.
+
+  const UPDATE_CHECK_MS = 60 * 60 * 1000;
+  const onWebsite = /^https?:$/.test(location.protocol); // not when opened straight from a file
+  let registration = null;
+  let newerVersion = null;
+
+  function showUpdateNote() {
+    const note = $('update-note');
+    setText(note, newerVersion ? words.updateReady(newerVersion) : '');
+    note.hidden = !newerVersion;
+  }
+
+  // Asks the website which version is published. ?check= tells sw.js not to answer from its copy.
+  async function checkForUpdate() {
+    if (!onWebsite) return;
+    try {
+      const res = await fetch('js/version.js?check=' + Date.now(), { cache: 'no-store' });
+      const match = res.ok && (await res.text()).match(/VERSION\s*=\s*'([^']+)'/);
+      if (match && match[1] !== VERSION) {
+        newerVersion = match[1];
+        showUpdateNote();
+      }
+    } catch (e) { /* offline: check again later */ }
+    if (registration) registration.update().catch(() => {});
+  }
+
+  if ('serviceWorker' in navigator && onWebsite) {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(reg => { registration = reg; })
+      .catch(() => { /* no offline copy in this browser; the app still works online */ });
+  }
 
   // --- Start ----------------------------------------------------------------------------------------
 
@@ -341,4 +824,23 @@
 
   buildSwatches();
   render();
+
+  // Fresh weather every time the app opens, then quietly every 30 minutes. Coming back to the app
+  // or getting the internet back also fetches anything that's out of date.
+  refreshPlaces(0, true);
+  refreshAlerts(0, true);
+  setInterval(tick, 60 * 1000);
+  setInterval(checkForUpdate, UPDATE_CHECK_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshPlaces(REOPEN_MS, true);
+      refreshAlerts(ALERT_CHECK_MS, true);
+      updateNotice();
+      checkForUpdate();
+    }
+  });
+  window.addEventListener('online', () => {
+    refreshPlaces(REOPEN_MS, true);
+    refreshAlerts(ALERT_CHECK_MS, true);
+  });
 })();

@@ -9,9 +9,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@700;800&display=swap">
+  <link rel="preload" href="fonts/atkinson-hyperlegible-next-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/app.css">
   <!-- Applies the saved theme and text size before the page is drawn. -->
   <script src="js/settings.js"></script>
@@ -35,6 +33,14 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
       </button>
     </header>
+
+    <!-- Severe weather alerts for this place (National Weather Service). Silent: click one to hear it. -->
+    <div class="alerts" id="alerts" role="alert"></div>
+
+    <!-- Shown only when something needs saying: getting the weather, an old forecast, or no connection. -->
+    <div class="notice-zone" role="status">
+      <button type="button" class="notice readable" id="notice" hidden></button>
+    </div>
 
     <section class="now" aria-label="Right now">
       <button type="button" class="now-temp readable" id="now-temp"></button>
@@ -191,15 +197,46 @@
 
     <div class="setting">
       <h2 class="setting-title"><button type="button" class="readable" data-about="places">Places</button></h2>
-      <ul class="places-list" id="places-list"></ul>
-      <p class="setting-note">These are sample places for testing. Adding your own places comes with live weather.</p>
+      <p class="setting-note">The app opens on the first place. With more than one place, the arrows beside the town name switch between them.</p>
+      <ol class="places-list" id="places-list"></ol>
+      <p class="place-status" id="place-status" role="status"></p>
+      <button type="button" class="action-btn" id="add-place">Add a place</button>
+
+      <form class="place-search" id="place-search" hidden>
+        <h3 class="search-title" id="search-title" tabindex="-1"></h3>
+        <label class="search-label" for="place-query">Town name or ZIP code</label>
+        <div class="search-row">
+          <input class="search-input" id="place-query" type="text" autocomplete="off" autocapitalize="words"
+                 spellcheck="false" enterkeyhint="search">
+          <button type="submit" class="action-btn">Search</button>
+          <button type="button" class="action-btn" id="search-cancel">Cancel</button>
+        </div>
+        <p class="search-msg" id="search-msg" role="status"></p>
+        <ul class="search-results" id="search-results"></ul>
+      </form>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="alerts">Weather warnings</button></h2>
+      <p class="setting-note" id="alerts-note">Warnings from the National Weather Service show at the top of the main screen, for places in the United States. Each place's warnings show when you switch to that place. They're checked every 5 minutes while the app is open, but not while it's closed, so keep a phone or weather radio for emergencies. Click a warning to hear it.</p>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="readAlerts">Read new warnings aloud</button></h2>
+      <p class="setting-note" id="read-alerts-note">Reads each new warning for the place on screen once, without a click. So the app never starts talking the moment it opens, this begins after the first click or key press each time the app is opened. Until then, the warning still shows, and Read aloud includes it.</p>
+      <div class="choices" role="group" aria-label="Read new warnings aloud">
+        <button type="button" class="choice" data-setting="readAlerts" data-value="true">On</button>
+        <button type="button" class="choice" data-setting="readAlerts" data-value="false">Off</button>
+      </div>
     </div>
 
     <div class="setting">
       <button type="button" class="action-btn" id="reset-btn">Reset all settings</button>
     </div>
 
+    <p class="credits">Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>. Warnings from the <a href="https://www.weather.gov/">National Weather Service</a>. Place names from <a href="https://www.geonames.org/">GeoNames</a>.</p>
     <p class="version" id="version"></p>
+    <p class="update-note" id="update-note" role="status" hidden></p>
     <div class="panel-bottom">
       <button type="button" class="action-btn" data-go="main">Done</button>
     </div>
@@ -218,8 +255,11 @@
     </div>
   </section>
 
+  <script src="js/version.js"></script>
   <script src="js/words.js"></script>
-  <script src="js/data.js"></script>
+  <script src="js/places.js"></script>
+  <script src="js/forecast.js"></script>
+  <script src="js/alerts.js"></script>
   <script src="js/speech.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/app.js"></script>

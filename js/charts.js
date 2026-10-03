@@ -73,7 +73,15 @@ Weather.charts = (function () {
       return b;
     }
 
-    function render(newDays, newLabels) {
+    // keepPosition: new numbers for the same place (a quiet refresh). The charts stay on the same
+    // days and a focused day keeps focus, so nothing moves under the person.
+    function render(newDays, newLabels, keepPosition) {
+      const focused = document.activeElement && document.activeElement.closest &&
+        document.activeElement.closest('.day');
+      const refocus = keepPosition && focused && tracks.includes(focused.parentElement)
+        ? { track: focused.parentElement, index: Number(focused.dataset.index) }
+        : null;
+
       days = newDays;
       labels = newLabels;
       // One shared scale for the whole week, so a warmer day sits visibly higher.
@@ -83,8 +91,13 @@ Weather.charts = (function () {
       rainTrack.replaceChildren(...days.map((d, i) => rainDay(d, i)));
       tracks.forEach(t => setTabStop(t, 0));
       stopAnimation();
-      offset = 0;
+      if (!keepPosition) offset = 0;
       layout();
+
+      if (refocus && refocus.track.children[refocus.index]) {
+        setTabStop(refocus.track, refocus.index);
+        refocus.track.children[refocus.index].focus({ preventScroll: true });
+      }
     }
 
     // Works out how many days fit, then puts both charts back on a whole day.

@@ -1,5 +1,6 @@
-// Sample places and forecasts for the Phase 1 prototype. None of this is real weather.
-// Phase 2 replaces it with live Open-Meteo data in the same shape:
+// Test data only: the app doesn't load this file. The live app gets places from js/places.js and
+// forecasts from Open-Meteo (js/forecast.js). These made-up values are kept for testing layouts.
+// Live forecasts also give each day a date (YYYY-MM-DD), which day names are taken from.
 //   place:    { id, name, spokenName }
 //   forecast: { current: { temp, condition }, days: [{ high, low, rain }] }  (days[0] is today, 7 days)
 window.Weather = window.Weather || {};
