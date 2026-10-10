@@ -3,7 +3,7 @@
 ## Decisions so far (agreed with the owner)
 
 **Who and where**
-- It's for one person with macular degeneration, and should also work for other low-vision users later.
+- It's for one low-vision user, and should also work for other low-vision users later.
 - They use a Chromebook (model unknown) with a mouse and an enlarged cursor. The app must also work with a touchscreen.
 - They haven't used ChromeVox, the screen magnifier or Select-to-Speak.
 
@@ -60,7 +60,7 @@
 | 2 | Live weather from Open-Meteo, and adding your own places | **Done** (0.4.0, built on the other computer) |
 | 3 | Works offline and installs cleanly: a service worker and a clear update flow | **Done** (0.4.0) |
 | — | Severe weather alerts | **Done** (0.4.0) |
-| — | Hour-by-hour graphs, and rain moved above temperature | **Done** (0.5.0, built on the iMac and merged on top of 0.4.0) |
+| — | Hour-by-hour graphs, and rain moved above temperature | **Done** (0.5.0, built on a second computer and merged on top of 0.4.0) |
 | 4 | Testing with the person, then a screen-reader, keyboard and contrast check, then polish | **Done** (0.6.0) |
 
 ### What Phases 2 and 3 built (0.4.0)

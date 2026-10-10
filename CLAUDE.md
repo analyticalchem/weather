@@ -2,7 +2,7 @@
 
 ## Who this is for
 
-A person with macular degeneration (loss of central vision) uses this on a Chromebook with a mouse and an enlarged cursor. Judge every change by one question: **can they read it and operate it?** The app should also work for other low-vision users, including on touchscreens.
+A low-vision user uses this on a Chromebook with a mouse and an enlarged cursor. They can't make out small or fine detail. Judge every change by one question: **can they read it and operate it?** The app should also work for other low-vision users, including on touchscreens.
 
 ## Status
 
@@ -88,7 +88,7 @@ There's no build step and there are no dependencies. Scripts are classic `<scrip
 python3 -m http.server 8123
 ```
 
-Then open http://localhost:8123. `.claude/launch.json` (not in git) sets this up as "weather" for the Claude desktop preview. On the iMac it points at Homebrew's `/usr/local/bin/python3.14`, because macOS blocks Xcode's `python3` from reading the Desktop folder.
+Then open http://localhost:8123. `.claude/launch.json` (not in git) sets this up as "weather" for the Claude desktop preview. Each computer may need its own Python path there. If the preview server fails with a permission error, point it at a Python that's allowed to read the project folder.
 
 **Testing tip:** after editing files, the browser (and the service worker) can keep running an older copy of a file next to newer copies of the others. Refetch everything before testing:
 
