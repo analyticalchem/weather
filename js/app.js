@@ -525,6 +525,7 @@
       case 'readAll': return `The read aloud button reads ${s.readAll === 'week' ? 'the whole week' : 'today only'}.`;
       case 'tapToRead': return `Read items when clicked. Currently ${onOff(s.tapToRead)}.`;
       case 'sayTown': return `Say the town name when switching places. Currently ${onOff(s.sayTown)}.`;
+      case 'units': return `Temperature units. Currently ${s.units === 'c' ? 'Celsius' : 'Fahrenheit'}.`;
       case 'places': return `Places. ${places.map(p => p.spokenName).join('. ')}.`;
       case 'alerts': return 'Weather warnings. ' + $('alerts-note').textContent;
       case 'readAlerts': return `Read new warnings aloud. Currently ${onOff(s.readAlerts)}.`;
@@ -796,9 +797,14 @@
   });
 
   let readAlertsWas = settings.get().readAlerts;
+  let unitsWere = settings.get().units;
   settings.onChange(s => {
     if (s.readAlerts && !readAlertsWas) announceAlerts(); // turning it on reads any warnings not yet heard
     readAlertsWas = s.readAlerts;
+    if (s.units !== unitsWere) {
+      unitsWere = s.units;
+      render(true); // every temperature on the main screen is written again in the new units
+    }
     if (currentView === 'settings') renderSettings();
     if (currentView === 'colors') renderSwatches();
     refreshCharts();

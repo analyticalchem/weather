@@ -28,6 +28,7 @@ Weather.settings = (function () {
     readAll: 'today',    // what the Read aloud button covers: 'today' | 'week'
     tapToRead: true,     // click an item to hear it
     sayTown: false,      // say the town name when switching places
+    units: 'f',          // temperatures in 'f' (Fahrenheit, the default) or 'c' (Celsius)
     readAlerts: false    // read each new weather warning aloud once, without a click
   };
 
@@ -49,6 +50,7 @@ Weather.settings = (function () {
       readAll: s.readAll === 'week' ? 'week' : 'today',
       tapToRead: s.tapToRead !== false,
       sayTown: s.sayTown === true,
+      units: s.units === 'c' ? 'c' : 'f',
       readAlerts: s.readAlerts === true
     };
   }

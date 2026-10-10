@@ -80,6 +80,9 @@ Weather.hourly = (function () {
     blockLayer.parentElement.classList.add('hg-blocks-cell');
     const hits = cell('hg-hits');
     hits.parentElement.classList.add('hg-hits-cell');
+    // Screen readers get the hour and block buttons, which say everything; the drawing and the rows of
+    // numbers under it would only be read as a jumble of loose numbers.
+    [plot, hourRow, ...valueRows, blockLayer].forEach(c => c.parentElement.setAttribute('aria-hidden', 'true'));
     // A forecast saved before hourly numbers were added has none until the next refresh.
     const empty = el('p', 'hg-empty', 'The hour-by-hour forecast will appear the next time the weather is updated.');
     empty.hidden = true;
@@ -143,8 +146,6 @@ Weather.hourly = (function () {
       state = { hours, label, nowHour };
       selectedHour = hour;
       readable(titleButton, kind === 'temp' ? words.tempHourly(hours, label) : words.rainHourly(hours, label));
-      tabStops.hour = 0;
-      tabStops.block = 0;
       step = 0;
       layout();
 
@@ -302,6 +303,14 @@ Weather.hourly = (function () {
         b.setAttribute('aria-label', isChosen ? `${label}, chosen. Read every hour.` : `${label}. Choose and read these hours.`);
         hits.append(b);
       });
+      // Tab lands on the chosen block, and on the current hour (or the chosen block's first hour).
+      // Not while someone is already moving through the graph with the keyboard.
+      if (!hits.contains(document.activeElement)) {
+        const blocks = rowTargets('block');
+        tabStops.block = Math.max(0, blocks.findIndex(b => b.classList.contains('hg-chosen')));
+        const nowIndex = state.nowHour == null ? -1 : hours.findIndex(h => h.hour === Math.floor(state.nowHour));
+        tabStops.hour = nowIndex >= chosen && nowIndex < chosen + step ? nowIndex : chosen;
+      }
       updateTabStops();
     }
 

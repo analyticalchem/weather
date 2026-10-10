@@ -5,11 +5,19 @@ window.Weather = window.Weather || {};
 Weather.words = (function () {
   const MINUS = '−'; // a true minus sign is wider and easier to see than a hyphen
 
-  function temp(t) {
+  // Forecasts are kept in °F. Shown and spoken in the person's units (Fahrenheit unless they chose Celsius).
+  function inUnits(f) {
+    const celsius = Weather.settings && Weather.settings.get().units === 'c';
+    return Math.round(celsius ? (f - 32) * 5 / 9 : f);
+  }
+
+  function temp(f) {
+    const t = inUnits(f);
     return (t < 0 ? MINUS + Math.abs(t) : String(t)) + '°';
   }
 
-  function spoken(t) {
+  function spoken(f) {
+    const t = inUnits(f);
     return t < 0 ? 'minus ' + Math.abs(t) : String(t);
   }
 

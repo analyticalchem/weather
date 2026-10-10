@@ -20,7 +20,7 @@ gh repo clone analyticalchem/weather
 
 ## Publishing a new version
 
-1. Increase `VERSION` in `js/version.js` (for example, 0.5.0 → 0.6.0). The installed app uses this number to notice the update.
+1. Increase `VERSION` in `js/version.js` (for example, 0.6.0 → 0.7.0). The installed app uses this number to notice the update.
 2. If you added a file the app loads, add it to `APP_FILES` in `sw.js`, or the app will break offline.
 3. Commit, then (after the owner says yes) push:
    ```bash

@@ -9,9 +9,10 @@ A person with macular degeneration (loss of central vision) uses this on a Chrom
 The app is live at https://analyticalchem.github.io/weather/ (repository `analyticalchem/weather`). Work has been done from two computers, and **GitHub is the shared copy**: pull before starting, and never overwrite work you didn't make.
 - **0.1.0:** prototype with sample weather (Phase 1).
 - **0.4.0:** live weather, places, offline use, and severe weather alerts (Phases 2 and 3), built on the other computer.
-- **0.5.0:** hour-by-hour graphs, with rain above temperature, merged on top of 0.4.0.
+- **0.5.0:** hour-by-hour graphs, with rain above temperature, merged on top of 0.4.0. These changes came from the owner's test session with the person.
+- **0.6.0:** Phase 4 accessibility pass (screen reader, keyboard and contrast), plus a °F/°C setting with Fahrenheit as the default.
 
-Next is **Phase 4: testing with the person**. See `PLAN.md` for every decision made so far, what's left, and the test checklist. See `DEPLOY.md` for publishing. Ask the owner before any `git push`.
+All planned phases are done. See `PLAN.md` for every decision made so far, what's left, and the test checklist. See `DEPLOY.md` for publishing. Ask the owner before any `git push`.
 
 ## Design rules (don't break these)
 
@@ -48,6 +49,8 @@ Next is **Phase 4: testing with the person**. See `PLAN.md` for every decision m
 - **No disabled buttons,** because they're low contrast. Use `aria-disabled` with the high-contrast hollow style instead.
 - **No motion** except the short chart slide, which is skipped when `prefers-reduced-motion` is on.
 - **Double-click protection:** clicks are ignored for 500 ms after the screen changes.
+- **Fahrenheit is the default.** Forecasts are stored in °F. `words.temp()` and `words.spoken()` convert to the person's units, so every temperature must go through them; Celsius is an option in Settings.
+- **Screen readers hear buttons, not drawings.** The hourly graphs' drawing and number rows are `aria-hidden`; the hour and block buttons carry the full sentences. Each screen is a `<main>` element, and only one is shown at a time. Re-run axe-core on all three screens after changes; 0.6.0 has no violations.
 - **Font:** Atkinson Hyperlegible Next, bold or extra-bold, falling back to Verdana. It's hosted with the app in `fonts/` (OFL license), so it works offline.
 
 ## Code layout
@@ -60,7 +63,7 @@ There's no build step and there are no dependencies. Scripts are classic `<scrip
 | `css/app.css` | Themes (at the top), then layout and components |
 | `js/version.js` | The version number. Read by Settings and by `sw.js`. |
 | `js/settings.js` | Setting defaults, saving to `localStorage`, applying theme and size. Loaded in `<head>` so there's no flash of the wrong theme. |
-| `js/words.js` | Every displayed number format and every spoken sentence |
+| `js/words.js` | Every displayed number format and every spoken sentence, including °F/°C conversion |
 | `js/places.js` | The person's places (saved on the device; Chicago to start) and the Open-Meteo town and ZIP search |
 | `js/forecast.js` | Live forecasts from Open-Meteo (current, 7 days, and hourly), saved on the device for offline use |
 | `js/alerts.js` | US National Weather Service warnings, checked every 5 minutes while the app is open |

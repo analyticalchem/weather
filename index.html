@@ -159,7 +159,7 @@
   </main>
 
   <!-- ===================== Settings ===================== -->
-  <section id="view-settings" class="view" aria-labelledby="settings-title" hidden>
+  <main id="view-settings" class="view" aria-labelledby="settings-title" hidden>
     <div class="panel-top">
       <h1 id="settings-title" tabindex="-1">Settings</h1>
       <button type="button" class="action-btn" data-go="main">Done</button>
@@ -221,7 +221,7 @@
 
     <div class="setting">
       <h2 class="setting-title"><button type="button" class="readable" data-about="tapToRead">Read items when clicked</button></h2>
-      <p class="setting-note">Click a temperature, a day, or the town name to hear it. Click it again to stop.</p>
+      <p class="setting-note">Click a temperature, a day, or the town name to hear it. Click it again to stop. If you use ChromeVox, turn this off, or everything is read twice.</p>
       <div class="choices" role="group" aria-label="Read items when clicked">
         <button type="button" class="choice" data-setting="tapToRead" data-value="true">On</button>
         <button type="button" class="choice" data-setting="tapToRead" data-value="false">Off</button>
@@ -233,6 +233,14 @@
       <div class="choices" role="group" aria-label="Say the town name when switching places">
         <button type="button" class="choice" data-setting="sayTown" data-value="true">On</button>
         <button type="button" class="choice" data-setting="sayTown" data-value="false">Off</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <h2 class="setting-title"><button type="button" class="readable" data-about="units">Temperature units</button></h2>
+      <div class="choices" role="group" aria-label="Temperature units">
+        <button type="button" class="choice" data-setting="units" data-value="f">Fahrenheit (°F)</button>
+        <button type="button" class="choice" data-setting="units" data-value="c">Celsius (°C)</button>
       </div>
     </div>
 
@@ -281,10 +289,10 @@
     <div class="panel-bottom">
       <button type="button" class="action-btn" data-go="main">Done</button>
     </div>
-  </section>
+  </main>
 
   <!-- ===================== Color choices ===================== -->
-  <section id="view-colors" class="view" aria-labelledby="colors-title" hidden>
+  <main id="view-colors" class="view" aria-labelledby="colors-title" hidden>
     <div class="panel-top">
       <h1 id="colors-title" tabindex="-1">Color choices</h1>
       <button type="button" class="action-btn" data-go="settings">Done</button>
@@ -294,7 +302,7 @@
     <div class="panel-bottom">
       <button type="button" class="action-btn" data-go="settings">Done</button>
     </div>
-  </section>
+  </main>
 
   <script src="js/version.js"></script>
   <script src="js/words.js"></script>

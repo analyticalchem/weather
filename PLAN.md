@@ -61,7 +61,7 @@
 | 3 | Works offline and installs cleanly: a service worker and a clear update flow | **Done** (0.4.0) |
 | — | Severe weather alerts | **Done** (0.4.0) |
 | — | Hour-by-hour graphs, and rain moved above temperature | **Done** (0.5.0, built on the iMac and merged on top of 0.4.0) |
-| 4 | Testing with the person, then a ChromeVox and contrast check, then polish | **Next** |
+| 4 | Testing with the person, then a screen-reader, keyboard and contrast check, then polish | **Done** (0.6.0) |
 
 ### What Phases 2 and 3 built (0.4.0)
 - **Forecast:** Open-Meteo (free, no key). It fetches the current temperature and conditions in plain words ("Partly cloudy"), plus the 7-day high, low and rain chance, in °F in the place's own time zone. Since 0.5.0, it also fetches hourly temperature, feels-like and rain chance.
@@ -72,16 +72,27 @@
 - **Offline use:** a service worker keeps the app's files. Online, every file comes fresh first, falling back to the saved copy if the network takes over 4 seconds. The font is hosted with the app.
 - **Updates:** Settings checks the published version hourly and says when a newer one is ready ("Close the app and open it again to get it").
 
-### Phase 4: testing and polish
-- A session with the person (checklist below).
-- A ChromeVox pass, a keyboard-only pass, and a contrast audit of every color pair.
+### Phase 4: testing and polish (0.6.0)
+- **Session with the person:** done by the owner. The feedback became 0.5.0: rain above temperature, hour-by-hour graphs, one chosen day for both, time blocks, and the highlight rules.
+- **Contrast audit:** every color pair in all 8 themes (4 color sets × dark or light), including the alert banners and the "Now" label. The lowest is 10.1 to 1; AAA needs 7 to 1. Nothing needed changing.
+- **Screen-reader audit:** axe-core on all three screens, plus a review of the accessibility tree.
+  - Fixed: Settings and Color choices had no main landmark (each screen is now a `<main>`).
+  - Fixed: the hourly graphs exposed their drawing and rows of numbers as loose text. These are now hidden from screen readers, and the hour and block buttons say it all.
+  - Added to Settings: a note telling ChromeVox users to turn off "Read items when clicked", or they'd hear everything twice.
+  - The audit now shows no violations.
+  - ChromeVox itself only runs on a Chromebook, so a real ChromeVox check there is still worth doing.
+- **Keyboard pass:** with real key presses, Tab order is logical on every screen, focus is always shown with a thick outline, Enter opens Settings, and Escape goes back.
+  - Fixed: in the hourly graphs, Tab now lands on the current hour and the chosen block, instead of always on midnight and the first block.
+- **°F/°C setting:** Settings → Temperature units, with Fahrenheit as the default. Forecasts stay in °F and are converted only for display and speech.
 
 ### Ideas not yet built (ask the owner first)
 - A "Use my location" button for adding a place (in the original plan; not built in 0.4.0).
-- A °F/°C setting and a voice picker, for other users.
+- A voice picker, for other users.
 - Hiding overnight hours, or showing "the next 12 hours" for today, in the hourly graphs, so more hours get numbers.
 
 ## Test checklist (with the person)
+
+The first session was done by the owner in October 2026; its feedback became 0.5.0. Use this list for any later session.
 
 Do this at the distance they normally sit from the screen, with the app maximized. Write down what they say.
 
