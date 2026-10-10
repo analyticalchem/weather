@@ -97,6 +97,46 @@ Weather.words = (function () {
     service: "Can't reach the weather service."
   };
 
+  // On screen: "12 AM", "4 AM", "Noon", "4 PM".
+  function hourLabel(hour) {
+    if (hour === 0) return '12 AM';
+    if (hour === 12) return 'Noon';
+    return (hour % 12) + (hour < 12 ? ' AM' : ' PM');
+  }
+
+  // Out loud: "midnight" and "noon" are clearer than "12 AM" and "12 PM".
+  function spokenHour(hour) {
+    if (hour === 0) return 'midnight';
+    if (hour === 12) return 'noon';
+    return hourLabel(hour);
+  }
+
+  // "Today" and "Tomorrow" in the middle of a sentence.
+  const inSentence = label => (label === 'Today' || label === 'Tomorrow' ? label.toLowerCase() : label);
+
+  const capitalize = text => text.charAt(0).toUpperCase() + text.slice(1);
+
+  function tempHourly(hours, label) {
+    const coldest = hours.reduce((a, b) => (b.temp < a.temp ? b : a));
+    const warmest = hours.reduce((a, b) => (b.temp > a.temp ? b : a));
+    return `Temperature hour by hour for ${inSentence(label)}. ` +
+      `Coldest ${spoken(coldest.temp)} degrees at ${spokenHour(coldest.hour)}. ` +
+      `Warmest ${spoken(warmest.temp)} degrees at ${spokenHour(warmest.hour)}.`;
+  }
+
+  function rainHourly(hours, label) {
+    const wettest = hours.reduce((a, b) => (b.rain > a.rain ? b : a));
+    return `Chance of rain hour by hour for ${inSentence(label)}. ` +
+      (wettest.rain === 0
+        ? 'No rain expected.'
+        : `Highest chance ${wettest.rain} percent at ${spokenHour(wettest.hour)}.`);
+  }
+
+  // A block of hours, e.g. "4 AM to 8 AM" on screen and "8 PM to midnight" out loud.
+  const blockLabel = (start, length) => `${hourLabel(start)} to ${hourLabel((start + length) % 24)}`;
+  const blockSpoken = (start, length) =>
+    capitalize(`${spokenHour(start)} to ${spokenHour((start + length) % 24)}`) + '.';
+
   return {
     temp,
     spoken,
@@ -127,6 +167,13 @@ Weather.words = (function () {
     searchFailed: error => (error === 'offline'
       ? 'No internet connection. Try again when the internet is back.'
       : "Can't reach the place search. Try again in a minute."),
+    hourLabel,
+    blockLabel,
+    blockSpoken,
+    hourTemp: h => `${capitalize(spokenHour(h.hour))}: ${spoken(h.temp)} degrees, feels like ${spoken(h.feels)}.`,
+    hourRain: h => `${capitalize(spokenHour(h.hour))}: ${h.rain} percent chance of rain.`,
+    tempHourly,
+    rainHourly,
     place: (place, index, count) =>
       count > 1 ? `${place.spokenName}. Place ${index + 1} of ${count}.` : `${place.spokenName}.`,
     nowTemp: current =>

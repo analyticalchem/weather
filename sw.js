@@ -23,6 +23,7 @@ const APP_FILES = [
   'js/alerts.js',
   'js/speech.js',
   'js/charts.js',
+  'js/hourly.js',
   'js/app.js',
   'icons/icon.svg',
   'icons/icon-192.png',

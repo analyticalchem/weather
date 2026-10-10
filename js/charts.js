@@ -1,17 +1,18 @@
-// The two 7-day charts: temperature (high/low bars) and chance of rain.
-// They always scroll together and always come to rest on whole days.
+// The two 7-day charts: chance of rain and temperature (high/low bars). They work as one:
+//   - they always scroll together and always come to rest on whole days;
+//   - one day is chosen for both, and the hour-by-hour graphs show that day.
 // Ways to move: drag with the mouse or a finger, the big arrow buttons, a trackpad swipe, or arrow keys.
 window.Weather = window.Weather || {};
 
 Weather.charts = (function () {
-  const DRAG_START_PX = 10;     // a press that moves less than this is a click (and reads the day), not a drag
+  const DRAG_START_PX = 10;      // a press that moves less than this is a click (and chooses the day), not a drag
   const MIN_DAY_WIDTH_REM = 8.5; // when days would be narrower than this, fewer are shown at once
   const MAX_VISIBLE = 3;
-  const TEMP_PLOT_REM = 7;      // height from the week's highest high to its lowest low
-  const RAIN_PLOT_REM = 5.5;    // height of a 100% rain bar
-  const MIN_BAR_REM = 0.75;     // a day with almost no high/low difference still gets a visible bar
+  const TEMP_PLOT_REM = 7;       // height from the week's highest high to its lowest low
+  const RAIN_PLOT_REM = 5.5;     // height of a 100% rain bar
+  const MIN_BAR_REM = 0.75;      // a day with almost no high/low difference still gets a visible bar
   const ANIM_MS = 280;
-  const WHEEL_STEP = 40;        // horizontal wheel/trackpad distance that moves one day
+  const WHEEL_STEP = 40;         // horizontal wheel/trackpad distance that moves one day
   const WHEEL_GESTURE_GAP_MS = 250;
 
   const words = Weather.words;
@@ -24,11 +25,14 @@ Weather.charts = (function () {
     return node;
   }
 
-  function create({ tempTrack, rainTrack, rangeButtons, prevButtons, nextButtons }) {
-    const tracks = [tempTrack, rainTrack];
+  // charts: [{ kind: 'rain' | 'temp', track, rangeButton, prevButton, nextButton }]
+  // onSelect(index) is called when a day is clicked (or Enter is pressed on it) in either chart.
+  function create({ charts, onSelect }) {
+    const tracks = charts.map(c => c.track);
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let days = [];
     let labels = [];
+    let selected = 0;
     let offset = 0;          // index of the first visible day; fractional while dragging or animating
     let visible = MAX_VISIBLE;
     let frame = 0;
@@ -36,10 +40,12 @@ Weather.charts = (function () {
     let suppressClick = false;
     let wheel = { sum: 0, last: 0, used: false };
 
-    rainTrack.style.setProperty('--rain-plot', RAIN_PLOT_REM + 'rem');
+    charts.forEach(c => {
+      if (c.kind === 'rain') c.track.style.setProperty('--rain-plot', RAIN_PLOT_REM + 'rem');
+    });
 
     const maxOffset = () => Math.max(0, days.length - visible);
-    const dayWidth = () => tempTrack.clientWidth / visible;
+    const dayWidth = () => tracks[0].clientWidth / visible;
 
     function readable(node, say) {
       node.dataset.say = say;
@@ -73,8 +79,8 @@ Weather.charts = (function () {
       return b;
     }
 
-    // keepPosition: new numbers for the same place (a quiet refresh). The charts stay on the same
-    // days and a focused day keeps focus, so nothing moves under the person.
+    // keepPosition: new numbers for the same place (a quiet refresh). The charts stay on the same days,
+    // the chosen day stays chosen, and a focused day keeps focus, so nothing moves under the person.
     function render(newDays, newLabels, keepPosition) {
       const focused = document.activeElement && document.activeElement.closest &&
         document.activeElement.closest('.day');
@@ -87,11 +93,17 @@ Weather.charts = (function () {
       // One shared scale for the whole week, so a warmer day sits visibly higher.
       const top = Math.max(...days.map(d => d.high));
       const range = Math.max(1, top - Math.min(...days.map(d => d.low)));
-      tempTrack.replaceChildren(...days.map((d, i) => tempDay(d, i, top, range)));
-      rainTrack.replaceChildren(...days.map((d, i) => rainDay(d, i)));
-      tracks.forEach(t => setTabStop(t, 0));
+      charts.forEach(c => {
+        c.track.replaceChildren(...days.map((d, i) => (c.kind === 'temp' ? tempDay(d, i, top, range) : rainDay(d, i))));
+        setTabStop(c.track, 0);
+      });
       stopAnimation();
-      if (!keepPosition) offset = 0;
+      if (!keepPosition) {
+        offset = 0;
+        selected = 0;
+      }
+      selected = clamp(selected, 0, Math.max(0, days.length - 1));
+      markSelected();
       layout();
 
       if (refocus && refocus.track.children[refocus.index]) {
@@ -100,9 +112,21 @@ Weather.charts = (function () {
       }
     }
 
+    // The chosen day's name is drawn inverted in both charts, matching the day shown on the hourly graphs.
+    function markSelected() {
+      tracks.forEach(t => [...t.children].forEach((c, i) => c.setAttribute('aria-pressed', String(i === selected))));
+    }
+
+    // reveal: false keeps the charts where they are (a quiet refresh must not scroll them).
+    function select(index, reveal = true) {
+      selected = clamp(index, 0, Math.max(0, days.length - 1));
+      markSelected();
+      if (reveal) ensureVisible(selected);
+    }
+
     // Works out how many days fit, then puts both charts back on a whole day.
     function layout() {
-      const width = tempTrack.clientWidth;
+      const width = tracks[0].clientWidth;
       if (!width) return; // hidden (another screen is showing); runs again when shown
       const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
       const fit = Math.floor(width / (MIN_DAY_WIDTH_REM * remPx));
@@ -122,18 +146,18 @@ Weather.charts = (function () {
     function updateControls() {
       const first = Math.round(offset);
       const last = Math.min(days.length, first + visible) - 1;
-      const text = first === last ? `Day ${first + 1} of ${days.length}` : `Days ${first + 1}–${last + 1} of ${days.length}`;
+      const text = first === last
+        ? `Day ${first + 1} of ${days.length}`
+        : `Days ${first + 1}–${last + 1} of ${days.length}`;
       const say = words.range(labels.slice(first, last + 1), days.length);
-      rangeButtons.forEach(b => {
-        b.textContent = text;
-        readable(b, say);
-      });
-      prevButtons.forEach(b => b.setAttribute('aria-disabled', String(first <= 0)));
-      nextButtons.forEach(b => b.setAttribute('aria-disabled', String(first >= maxOffset())));
-      // Keep each chart's single Tab stop on a day that is on screen.
-      tracks.forEach(t => {
-        const stop = [...t.children].findIndex(c => c.tabIndex === 0);
-        if (stop < first || stop > last) setTabStop(t, first);
+      charts.forEach(c => {
+        c.rangeButton.textContent = text;
+        readable(c.rangeButton, say);
+        c.prevButton.setAttribute('aria-disabled', String(first <= 0));
+        c.nextButton.setAttribute('aria-disabled', String(first >= maxOffset()));
+        // Keep each chart's single Tab stop on a day that is on screen.
+        const stop = [...c.track.children].findIndex(d => d.tabIndex === 0);
+        if (stop < first || stop > last) setTabStop(c.track, first);
       });
     }
 
@@ -206,7 +230,7 @@ Weather.charts = (function () {
       const d = drag;
       drag = null;
       tracks.forEach(t => t.classList.remove('dragging'));
-      if (!d.moved) return; // a plain click: the day's own click handler reads it
+      if (!d.moved) return; // a plain click: chooses and reads the day
       suppressClick = true;
       setTimeout(() => { suppressClick = false; }, 0);
       // Any deliberate drag moves at least one day; longer drags move as many days as were dragged.
@@ -229,6 +253,12 @@ Weather.charts = (function () {
       if (!suppressClick) return;
       e.preventDefault();
       e.stopPropagation();
+    }
+
+    function onClick(e) {
+      const day = e.target.closest('.day');
+      if (!day || suppressClick) return;
+      onSelect(Number(day.dataset.index));
     }
 
     // --- Trackpad and shift+wheel: one swipe moves one day ------------------------------------------
@@ -254,14 +284,15 @@ Weather.charts = (function () {
     function onKeyDown(e) {
       const day = e.target.closest('.day');
       if (!day) return;
+      const track = day.parentElement;
       const i = Number(day.dataset.index);
       const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: days.length - 1 }[e.key];
       if (next === undefined) return;
       e.preventDefault();
       const j = clamp(next, 0, days.length - 1);
-      setTabStop(day.parentElement, j);
+      setTabStop(track, j);
       ensureVisible(j);
-      day.parentElement.children[j].focus({ preventScroll: true });
+      track.children[j].focus({ preventScroll: true });
     }
 
     function onFocusIn(e) {
@@ -269,7 +300,7 @@ Weather.charts = (function () {
       if (!day || drag) return;
       const track = day.parentElement;
       // Screen readers can move focus to a day that is off screen; the browser then scrolls the
-      // chart itself. Pick up from where it scrolled to, then settle on whole days.
+      // chart itself. Pick up from where it scrolled to, then settle both charts on whole days.
       if (!frame) offset = clamp(track.scrollLeft / dayWidth(), 0, maxOffset());
       setTabStop(track, Number(day.dataset.index));
       ensureVisible(Number(day.dataset.index));
@@ -282,25 +313,29 @@ Weather.charts = (function () {
       t.addEventListener('pointerup', onPointerUp);
       t.addEventListener('pointercancel', onPointerCancel);
       t.addEventListener('click', onClickCapture, true);
+      t.addEventListener('click', onClick);
       t.addEventListener('wheel', onWheel, { passive: false });
       t.addEventListener('keydown', onKeyDown);
       t.addEventListener('focusin', onFocusIn);
       t.addEventListener('dragstart', e => e.preventDefault());
     });
 
-    prevButtons.forEach(b => b.addEventListener('click', () => {
-      if (b.getAttribute('aria-disabled') !== 'true') step(-1);
-    }));
-    nextButtons.forEach(b => b.addEventListener('click', () => {
-      if (b.getAttribute('aria-disabled') !== 'true') step(1);
-    }));
+    charts.forEach(c => {
+      c.prevButton.addEventListener('click', () => {
+        if (c.prevButton.getAttribute('aria-disabled') !== 'true') step(-1);
+      });
+      c.nextButton.addEventListener('click', () => {
+        if (c.nextButton.getAttribute('aria-disabled') !== 'true') step(1);
+      });
+    });
 
-    new ResizeObserver(layout).observe(tempTrack);
+    new ResizeObserver(layout).observe(tracks[0]);
 
     return {
       render,
+      select,
       refresh: layout,
-      dayElements: i => [tempTrack.children[i], rainTrack.children[i]]
+      dayElements: i => tracks.map(t => t.children[i])
     };
   }
 

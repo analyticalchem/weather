@@ -64,35 +64,76 @@
       </button>
     </section>
 
-    <section class="chart" aria-labelledby="temp-title">
-      <div class="chart-head">
-        <h2 class="chart-title" id="temp-title">Temperature</h2>
-        <button type="button" class="day-range readable" id="temp-range"></button>
-      </div>
-      <div class="chart-body">
-        <button type="button" class="arrow-btn" data-days="-1" aria-label="Earlier days">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="17,3 5,12 17,21"/></svg>
-        </button>
-        <div class="track" id="temp-track" role="group" aria-label="Temperature for each day. Left and right arrow keys move between days."></div>
-        <button type="button" class="arrow-btn" data-days="1" aria-label="Later days">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
-        </button>
-      </div>
-    </section>
-
-    <section class="chart" aria-labelledby="rain-title">
+    <!-- Each section: a 7-day chart, then the hour-by-hour graph for the day selected in it. -->
+    <section class="chart-group" aria-labelledby="rain-title">
       <div class="chart-head">
         <h2 class="chart-title" id="rain-title">Chance of rain</h2>
         <button type="button" class="day-range readable" id="rain-range"></button>
       </div>
       <div class="chart-body">
-        <button type="button" class="arrow-btn" data-days="-1" aria-label="Earlier days">
+        <button type="button" class="arrow-btn" id="rain-days-prev" aria-label="Earlier days">
           <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="17,3 5,12 17,21"/></svg>
         </button>
-        <div class="track" id="rain-track" role="group" aria-label="Chance of rain for each day. Left and right arrow keys move between days."></div>
-        <button type="button" class="arrow-btn" data-days="1" aria-label="Later days">
+        <div class="track" id="rain-track" role="group" aria-label="Chance of rain for each day. Click a day to see it hour by hour. Left and right arrow keys move between days."></div>
+        <button type="button" class="arrow-btn" id="rain-days-next" aria-label="Later days">
           <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
         </button>
+      </div>
+
+      <div class="hourly">
+        <div class="chart-head">
+          <h2 class="chart-title">
+            <button type="button" class="hourly-title readable" id="rain-hourly-title">
+              <span>Hour by hour</span>
+              <span class="day-pill" id="rain-hourly-day"></span>
+            </button>
+          </h2>
+        </div>
+        <div class="chart-body">
+          <button type="button" class="arrow-btn" id="rain-hourly-prev" aria-label="Previous day">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="17,3 5,12 17,21"/></svg>
+          </button>
+          <div class="hourly-graph" id="rain-hourly-graph" role="group" aria-label="Chance of rain for each hour"></div>
+          <button type="button" class="arrow-btn" id="rain-hourly-next" aria-label="Next day">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="chart-group" aria-labelledby="temp-title">
+      <div class="chart-head">
+        <h2 class="chart-title" id="temp-title">Temperature</h2>
+        <button type="button" class="day-range readable" id="temp-range"></button>
+      </div>
+      <div class="chart-body">
+        <button type="button" class="arrow-btn" id="temp-days-prev" aria-label="Earlier days">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="17,3 5,12 17,21"/></svg>
+        </button>
+        <div class="track" id="temp-track" role="group" aria-label="Temperature for each day. Click a day to see it hour by hour. Left and right arrow keys move between days."></div>
+        <button type="button" class="arrow-btn" id="temp-days-next" aria-label="Later days">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
+        </button>
+      </div>
+
+      <div class="hourly">
+        <div class="chart-head">
+          <h2 class="chart-title">
+            <button type="button" class="hourly-title readable" id="temp-hourly-title">
+              <span>Hour by hour</span>
+              <span class="day-pill" id="temp-hourly-day"></span>
+            </button>
+          </h2>
+        </div>
+        <div class="chart-body">
+          <button type="button" class="arrow-btn" id="temp-hourly-prev" aria-label="Previous day">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="17,3 5,12 17,21"/></svg>
+          </button>
+          <div class="hourly-graph" id="temp-hourly-graph" role="group" aria-label="Temperature and feels-like temperature for each hour"></div>
+          <button type="button" class="arrow-btn" id="temp-hourly-next" aria-label="Next day">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="7,3 19,12 7,21"/></svg>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -262,6 +303,7 @@
   <script src="js/alerts.js"></script>
   <script src="js/speech.js"></script>
   <script src="js/charts.js"></script>
+  <script src="js/hourly.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

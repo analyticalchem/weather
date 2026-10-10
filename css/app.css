@@ -105,9 +105,9 @@ svg { display: block; flex: none; }
 
 /* --- Things you can click to hear --- */
 
-.readable { border-radius: 0.5rem; cursor: default; }
-.tap-read .readable { cursor: pointer; }
-.readable.is-reading { outline: 0.45rem solid var(--frame); outline-offset: 0.15rem; }
+.readable, .hearable { border-radius: 0.5rem; cursor: default; }
+.tap-read .readable, .tap-read .hearable { cursor: pointer; }
+.readable.is-reading, .hearable.is-reading { outline: 0.45rem solid var(--frame); outline-offset: 0.15rem; }
 
 /* --- Shared buttons --- */
 
@@ -168,7 +168,8 @@ svg { display: block; flex: none; }
     outline: 0.25rem solid var(--frame);
     outline-offset: 0.2rem;
   }
-  .tap-read .readable:not(.is-reading):hover {
+  .tap-read .readable:not(.is-reading):hover,
+  .tap-read .hearable:not(.is-reading):hover {
     outline: 0.2rem solid var(--frame);
     outline-offset: 0.15rem;
   }
@@ -239,7 +240,7 @@ svg { display: block; flex: none; }
 .no-forecast .now-temp,
 .no-forecast .now-hilo,
 .no-forecast .now-rain,
-.no-forecast .chart { display: none; }
+.no-forecast .chart-group { display: none; }
 
 /* --- Right now --- */
 
@@ -276,7 +277,8 @@ svg { display: block; flex: none; }
 
 /* --- Charts --- */
 
-.chart {
+/* A section: the 7-day chart, then the hour-by-hour graph for the selected day. */
+.chart-group {
   padding: 1rem 0 0.75rem;
   border-top: 0.25rem solid var(--fg);
 }
@@ -354,6 +356,180 @@ svg { display: block; flex: none; }
 /* Days sit edge to edge, so each day's piece of baseline joins into one line. */
 .rain-base { align-self: stretch; height: 0.3rem; background: var(--fg); }
 .rain-day .day-name { margin-top: 0.4rem; }
+
+/* The selected day's name is inverted, matching the day pill on the hour-by-hour graph below it. */
+.day[aria-pressed="true"] .day-name,
+.day-pill {
+  padding: 0 0.5rem;
+  border-radius: 0.4rem;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* --- Hour-by-hour graphs --- */
+
+.hourly {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 0.15rem solid var(--fg);
+}
+
+.hourly-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.8rem;
+  padding: 0.15rem 0.3rem;
+}
+
+.hg {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 0.5rem;
+  row-gap: 0.3rem;
+  padding: 0.75rem 0 0.25rem;
+}
+
+/* Row names in the left column: "Temp", "Feels like", "Rain". */
+.hg-label {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 5rem;
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+.hg-sample { width: 3rem; height: 0.9rem; margin-top: 0.25rem; overflow: visible; }
+
+/* A saved forecast from before hourly numbers were added: says so until the next update. */
+.hg-empty { max-width: 40em; padding: 1rem 0.6rem; font-size: 1.4rem; line-height: 1.4; }
+
+/* No name column: the rain graph, or names moved above their rows to make room for more hours. */
+.hg-one-column { grid-template-columns: 0 minmax(0, 1fr); column-gap: 0; }
+.hg-stacked .hg-label {
+  grid-column: 2;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: none;
+  padding-inline: 0.6rem;
+}
+.hg-stacked .hg-sample { margin-top: 0; }
+
+/* The side padding leaves room for the first and last hour's numbers. */
+.hg-cell { grid-column: 2; min-width: 0; padding-inline: 0.6rem; }
+.hg-inner { position: relative; height: 100%; }
+
+/* --hg-plot-h is the graph's height above the baseline. Hour targets stop at it; block highlights start under it. */
+.hg-temp { --hg-plot-h: 7rem; }
+.hg-rain { --hg-plot-h: 5rem; }
+.hg-plot { height: var(--hg-plot-h); }
+.hg-plot-rain { border-bottom: 0.3rem solid var(--fg); }
+
+.hg-hours { height: 1.8rem; font-size: 1.3rem; }
+.hg-values { height: 2.5rem; font-size: 2rem; font-weight: 800; }
+.hg-feels { font-size: 1.7rem; font-weight: 700; }
+
+/* Each block's first hour and its numbers, written at the left edge of the block. */
+.hg-tick {
+  position: absolute;
+  top: 0;
+  padding-left: 0.4rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.hg-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* Lines keep the same thickness and dash length however the graph is stretched. */
+.line-temp,
+.line-feels {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.line-temp { stroke: var(--temp); stroke-width: 0.4rem; }
+.line-feels { stroke: var(--fg); stroke-width: 0.3rem; stroke-dasharray: 0.7rem 0.55rem; }
+
+.hg-dot {
+  position: absolute;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.hg-dot-temp { background: var(--temp); }
+.hg-dot-feels { background: var(--bg); border: 0.25rem solid var(--fg); }
+
+.hg-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; }
+.hg-slot { flex: 1; display: flex; align-items: flex-end; justify-content: center; height: 100%; }
+.hg-bar { width: 70%; background: var(--rain); }
+
+.hg-now {
+  position: absolute;
+  top: -0.25rem;
+  bottom: 0;
+  width: 0.25rem;
+  margin-left: -0.125rem;
+  background: var(--fg);
+}
+.hg-now-label {
+  position: absolute;
+  top: 0;
+  left: 0.45rem;
+  padding: 0 0.35rem;
+  border-radius: 0.3rem;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 1rem;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.hg-now-left .hg-now-label { left: auto; right: 0.45rem; }
+
+/* Below the baseline: thin dividers between time blocks, and a thick box around the chosen block. */
+.hg-blocks-cell { pointer-events: none; }
+.hg-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.15rem;
+  margin-left: -0.075rem;
+  background: var(--fg);
+}
+
+/* Click targets over the graph: one per hour above the baseline, one per time block below it. */
+.hg-hits-cell { z-index: 1; }
+.hg-hit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 0.5rem;
+}
+
+/* Every hour: its bar or point, above the baseline only. Clicking one also chooses its block, so hours
+   are always clickable. Pointing gives a thin outline; reading it aloud, a thick one of the same size. */
+.hg-hour-hit { bottom: auto; height: var(--hg-plot-h); cursor: pointer; }
+
+/* Every time block: below the baseline only. The chosen block has a thick line around it; pointing at
+   any other block draws a thin line around exactly the same box. */
+.hg-block-hit {
+  top: calc(var(--hg-plot-h) + 0.1rem);
+  bottom: -0.2rem;
+  border: 0 solid var(--frame);
+}
+.hg-chosen { border-width: 0.35rem; }
+.tap-read .hg-chosen { cursor: pointer; } /* clicking it reads the block */
+.hg-block { cursor: pointer; }
+.hg-block:focus-visible { outline: none; border-width: 0.2rem; }
+@media (hover: hover) {
+  .hg-hour-hit:not(.is-reading):hover { outline: 0.2rem solid var(--frame); outline-offset: 0.15rem; }
+  .hg-block:hover { border-width: 0.2rem; }
+}
+
 
 /* --- Settings button: far from everything else, and it needs a press and hold --- */
 

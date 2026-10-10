@@ -1,7 +1,9 @@
 // Live forecasts from Open-Meteo (free, no key). The last forecast for each place is kept on this
 // device, so the app still shows the weather when the internet is down.
-//   forecast: { current: { temp, condition }, days: [{ date, high, low, rain }] }
+//   forecast: { current: { temp, condition }, days: [{ date, high, low, rain, hours }] }
+//   hours: [{ hour, temp, feels, rain }], the day's hours (0-23) in the place's own time.
 //   days[0] is today in the place's own time zone; up to 7 days. Temperatures are whole °F.
+//   Forecasts saved before hourly numbers were added have no hours until the next refresh.
 window.Weather = window.Weather || {};
 
 Weather.forecast = (function () {
@@ -12,6 +14,9 @@ Weather.forecast = (function () {
 
   const isNumber = v => typeof v === 'number' && isFinite(v);
   const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const isHour = h => h && Number.isInteger(h.hour) && h.hour >= 0 && h.hour <= 23 &&
+    isNumber(h.temp) && isNumber(h.feels) && isNumber(h.rain);
+  const percent = v => (isNumber(v) ? Math.min(100, Math.max(0, Math.round(v))) : 0);
 
   const listeners = [];
   const status = {};  // placeId → { loading, error: null | 'offline' | 'service', tried: time of last attempt }
@@ -20,7 +25,8 @@ Weather.forecast = (function () {
   function validEntry(e) {
     return e && isNumber(e.fetchedAt) && e.current && isNumber(e.current.temp) &&
       typeof e.current.condition === 'string' && Array.isArray(e.days) && e.days.length > 0 &&
-      e.days.every(d => d && isDate(d.date) && isNumber(d.high) && isNumber(d.low) && isNumber(d.rain));
+      e.days.every(d => d && isDate(d.date) && isNumber(d.high) && isNumber(d.low) && isNumber(d.rain) &&
+        (d.hours === undefined || (Array.isArray(d.hours) && d.hours.every(isHour))));
   }
 
   function load() {
@@ -60,7 +66,8 @@ Weather.forecast = (function () {
     const entry = cache[placeId];
     if (!entry) return null;
     const from = today(entry.timezone);
-    const days = entry.days.filter(d => d.date >= from).map(d => Object.assign({}, d));
+    const days = entry.days.filter(d => d.date >= from)
+      .map(d => Object.assign({}, d, d.hours ? { hours: d.hours.map(h => Object.assign({}, h)) } : {}));
     if (!days.length) return null;
     return { fetchedAt: entry.fetchedAt, forecast: { current: Object.assign({}, entry.current), days } };
   }
@@ -68,8 +75,25 @@ Weather.forecast = (function () {
   function normalize(data) {
     const c = (data && data.current) || {};
     const d = (data && data.daily) || {};
+    const h = (data && data.hourly) || {};
     if (!isNumber(c.temperature_2m) || !Array.isArray(d.time)) throw new Error('service');
     const pick = (list, i) => (Array.isArray(list) ? list[i] : null);
+
+    // Hourly times are the place's own clock ("2026-10-10T14:00"), grouped into their days.
+    const hoursByDate = {};
+    (Array.isArray(h.time) ? h.time : []).forEach((time, i) => {
+      const date = typeof time === 'string' ? time.slice(0, 10) : '';
+      const hour = typeof time === 'string' ? Number(time.slice(11, 13)) : NaN;
+      const temp = pick(h.temperature_2m, i);
+      if (!isDate(date) || !Number.isInteger(hour) || !isNumber(temp)) return;
+      const feels = pick(h.apparent_temperature, i);
+      (hoursByDate[date] = hoursByDate[date] || []).push({
+        hour,
+        temp: Math.round(temp),
+        feels: Math.round(isNumber(feels) ? feels : temp),
+        rain: percent(pick(h.precipitation_probability, i))
+      });
+    });
     const days = d.time
       .map((date, i) => ({
         date,
@@ -82,7 +106,8 @@ Weather.forecast = (function () {
         date: day.date,
         high: Math.round(day.high),
         low: Math.round(day.low),
-        rain: isNumber(day.rain) ? Math.min(100, Math.max(0, Math.round(day.rain))) : 0
+        rain: percent(day.rain),
+        hours: hoursByDate[day.date] || []
       }));
     if (!days.length) throw new Error('service');
     return {
@@ -106,6 +131,7 @@ Weather.forecast = (function () {
       longitude: place.longitude,
       current: 'temperature_2m,weather_code,is_day',
       daily: 'temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+      hourly: 'temperature_2m,apparent_temperature,precipitation_probability',
       temperature_unit: 'fahrenheit',
       timezone: 'auto',
       forecast_days: '7'

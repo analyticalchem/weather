@@ -36,13 +36,85 @@
   let shownAlerts = '';     // the alerts on screen, so the banner is rebuilt only when they change
   let announceLater = false; // new warnings waiting for the current reading to finish
 
-  const charts = W.charts.create({
-    tempTrack: $('temp-track'),
-    rainTrack: $('rain-track'),
-    rangeButtons: [$('temp-range'), $('rain-range')],
-    prevButtons: [...document.querySelectorAll('[data-days="-1"]')],
-    nextButtons: [...document.querySelectorAll('[data-days="1"]')]
+  // Two sections, rain then temperature, each a 7-day chart with an hour-by-hour graph under it.
+  // One chosen day drives both: clicking a day in either chart, or either graph's arrows, changes it
+  // everywhere. The two 7-day charts also scroll together.
+  const KINDS = ['rain', 'temp'];
+  let selectedDay = 0;
+  let selectedDate = null; // the chosen day's date, so a quiet refresh keeps the same day chosen
+  // The chosen time block is shared too: an hour inside it. Starts at the place's current hour.
+  let selectedHour = 0;
+
+  const strips = W.charts.create({
+    charts: KINDS.map(kind => ({
+      kind,
+      track: $(`${kind}-track`),
+      rangeButton: $(`${kind}-range`),
+      prevButton: $(`${kind}-days-prev`),
+      nextButton: $(`${kind}-days-next`)
+    })),
+    onSelect: i => selectDay(i)
   });
+
+  const graphs = KINDS.map(kind => W.hourly.create({
+    kind,
+    graph: $(`${kind}-hourly-graph`),
+    titleButton: $(`${kind}-hourly-title`),
+    dayPill: $(`${kind}-hourly-day`),
+    onSelectHour: hour => {
+      selectedHour = hour;
+      graphs.forEach(g => g.setSelectedHour(hour));
+    }
+  }));
+
+  const hourlyPrev = KINDS.map(kind => $(`${kind}-hourly-prev`));
+  const hourlyNext = KINDS.map(kind => $(`${kind}-hourly-next`));
+  hourlyPrev.forEach(b => b.addEventListener('click', () => stepDay(-1)));
+  hourlyNext.forEach(b => b.addEventListener('click', () => stepDay(1)));
+
+  function currentDays() {
+    const entry = W.forecast.get(currentPlace().id);
+    return entry ? entry.forecast.days : [];
+  }
+
+  // The time where the place is, in hours (14.5 is 2:30 PM), so "Now" is right in any time zone.
+  function placeNow(timezone) {
+    const now = new Date();
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone || undefined, hour: 'numeric', minute: 'numeric', hourCycle: 'h23'
+      }).formatToParts(now);
+      const part = type => Number(parts.find(p => p.type === type).value);
+      return part('hour') + part('minute') / 60;
+    } catch (e) {
+      return now.getHours() + now.getMinutes() / 60;
+    }
+  }
+
+  // reveal: false for a quiet refresh, so the charts don't scroll by themselves.
+  function selectDay(index, reveal = true) {
+    const days = currentDays();
+    if (!days.length) return;
+    selectedDay = Math.min(days.length - 1, Math.max(0, index));
+    selectedDate = days[selectedDay].date;
+    strips.select(selectedDay, reveal);
+    const nowHour = selectedDay === 0 ? placeNow(currentPlace().timezone) : null;
+    graphs.forEach(g => g.render(days[selectedDay], labels[selectedDay], nowHour, selectedHour));
+    hourlyPrev.forEach(b => b.setAttribute('aria-disabled', String(selectedDay === 0)));
+    hourlyNext.forEach(b => b.setAttribute('aria-disabled', String(selectedDay === days.length - 1)));
+  }
+
+  function stepDay(dir) {
+    const target = selectedDay + dir;
+    if (target < 0 || target >= currentDays().length) return;
+    speech.stop(); // anything being read belongs to the day being left
+    selectDay(target);
+  }
+
+  function refreshCharts() {
+    strips.refresh();
+    graphs.forEach(g => g.refresh());
+  }
 
   // The sentence an item speaks also becomes its screen reader label.
   function readable(el, say) {
@@ -184,8 +256,16 @@
     setText($('now-rain-value'), today.rain + '%');
     readable($('now-rain'), words.rainToday(today));
 
-    // Keep the chart position only if the charts already show this place.
-    charts.render(forecast.days, labels, keepPosition && chartsPlaceId === place.id);
+    // Keep the chart position, the chosen day and the chosen time block only if the charts already
+    // show this place. A new place starts on today, at its current hour.
+    const keep = keepPosition && chartsPlaceId === place.id;
+    strips.render(forecast.days, labels, keep);
+    if (keep) {
+      selectDay(Math.max(0, forecast.days.findIndex(d => d.date === selectedDate)), false);
+    } else {
+      selectedHour = Math.floor(placeNow(place.timezone));
+      selectDay(0);
+    }
     chartsPlaceId = place.id;
   }
 
@@ -265,6 +345,7 @@
     } else {
       renderAlerts();
       updateNotice();
+      if (entry && selectedDay === 0) graphs.forEach(g => g.setNow(placeNow(currentPlace().timezone)));
     }
     announceAlerts(); // in case Chrome only now allows the app to speak
   }
@@ -287,7 +368,7 @@
     );
     if (settings.get().readAll === 'week') {
       forecast.days.forEach((day, i) => {
-        if (i > 0) parts.push({ text: words.dayFull(day, labels[i]), els: charts.dayElements(i) });
+        if (i > 0) parts.push({ text: words.dayFull(day, labels[i]), els: strips.dayElements(i) });
       });
     }
     return parts;
@@ -410,7 +491,7 @@
     currentView = name;
     window.scrollTo(0, 0);
     if (name === 'main') {
-      charts.refresh();
+      refreshCharts();
       $('place-name').focus({ preventScroll: true });
     } else if (name === 'settings') {
       if (from === 'main') {
@@ -720,7 +801,7 @@
     readAlertsWas = s.readAlerts;
     if (currentView === 'settings') renderSettings();
     if (currentView === 'colors') renderSwatches();
-    charts.refresh();
+    refreshCharts();
   });
 
   // --- Color choices screen -------------------------------------------------------------------------

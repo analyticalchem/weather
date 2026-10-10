@@ -11,6 +11,7 @@ Weather.speech = (function () {
   let session = 0;        // bumped on every speak/stop so callbacks from old speech are ignored
   let speaking = false;
   let highlighted = [];
+  let tag = null;         // optional name for what is being read, so a second click on it can stop it
   let utterances = [];    // kept referenced: Chrome may drop end events for utterances it garbage-collects
   let watchdog = 0;
 
@@ -33,6 +34,7 @@ Weather.speech = (function () {
   function finish() {
     clearInterval(watchdog);
     utterances = [];
+    tag = null;
     setHighlight(null);
     setSpeaking(false);
   }
@@ -44,6 +46,7 @@ Weather.speech = (function () {
   }
 
   // segments: a string, or a list of { text, els } so each part of the screen is outlined as it is read.
+  // options: { els } to outline while reading a string; { tag } to name this reading for isSpeakingTag.
   function speak(segments, options) {
     stop();
     if (!supported) return false;
@@ -72,6 +75,7 @@ Weather.speech = (function () {
     synth.resume(); // Chrome can be left paused; resuming is harmless otherwise
     utterances.forEach(u => synth.speak(u));
     setHighlight(queue[0].els);
+    tag = (options && options.tag) || null;
     setSpeaking(true);
 
     // Safety net: if the engine goes quiet without telling us, reset the button.
@@ -89,6 +93,7 @@ Weather.speech = (function () {
     stop,
     isSpeaking: () => speaking,
     isReading: el => speaking && highlighted.includes(el),
+    isSpeakingTag: name => speaking && tag === name,
     onChange: fn => listeners.push(fn)
   };
 })();
