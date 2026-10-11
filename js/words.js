@@ -141,9 +141,11 @@ Weather.words = (function () {
   }
 
   // A block of hours, e.g. "4 AM to 8 AM" on screen and "8 PM to midnight" out loud.
-  const blockLabel = (start, length) => `${hourLabel(start)} to ${hourLabel((start + length) % 24)}`;
+  // A block that covers the whole day (largest text on a phone) is "All day".
+  const blockLabel = (start, length) =>
+    (length >= 24 ? 'All day' : `${hourLabel(start)} to ${hourLabel((start + length) % 24)}`);
   const blockSpoken = (start, length) =>
-    capitalize(`${spokenHour(start)} to ${spokenHour((start + length) % 24)}`) + '.';
+    (length >= 24 ? 'All day.' : capitalize(`${spokenHour(start)} to ${spokenHour((start + length) % 24)}`) + '.');
 
   return {
     temp,

@@ -34,6 +34,10 @@
   - **Above it:** every hour. Pointing at any bar or point highlights just that hour with a thin outline. Clicking it chooses that hour's time block (the thick box moves under it, in both graphs) and reads just that hour, with a thick outline of the same size while it's read.
   - **Below it:** time blocks. The chosen block has a thick line around it. Pointing at another block draws a thin line around exactly the same box. Clicking a block chooses it for both graphs and reads all of its hours, outlining each hour's bar as it's read.
 - There are no panels under the hourly graphs; the owner removed both on 2026-10-10.
+- The temperature graph's legend ("Temp" and "Feels like", each with its line and dot) sits at the top of the graph (0.6.1). It replaced the names beside the number rows, which also gave the graph more width.
+- **Phones:** in portrait, the arrows go below what they move, as two wide buttons, so charts and graphs get the full width.
+  - At the default text size, a phone shows 1 day at a time and 3 numbered time blocks; at the smallest text size, 2 days and 4 blocks.
+  - Short day names ("Wed") would fit 2 days on a phone at the default size. That's an idea for the owner to decide on.
 - The chosen block starts at the current hour and stays the same when you change days, so the same time of day can be compared across days.
 - Arrows are solid filled triangles, and turn hollow when there's nothing further in that direction.
 - Places switch only with the arrow buttons by the town name, never by swiping. Swiping already moves the charts, so a second swipe gesture would cause accidental switches.
@@ -62,6 +66,7 @@
 | — | Severe weather alerts | **Done** (0.4.0) |
 | — | Hour-by-hour graphs, and rain moved above temperature | **Done** (0.5.0, built on a second computer and merged on top of 0.4.0) |
 | 4 | Testing with the person, then a screen-reader, keyboard and contrast check, then polish | **Done** (0.6.0) |
+| — | Legend at the top of the temperature graph; correct layout on phones | **Done** (0.6.1) |
 
 ### What Phases 2 and 3 built (0.4.0)
 - **Forecast:** Open-Meteo (free, no key). It fetches the current temperature and conditions in plain words ("Partly cloudy"), plus the 7-day high, low and rain chance, in °F in the place's own time zone. Since 0.5.0, it also fetches hourly temperature, feels-like and rain chance.

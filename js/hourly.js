@@ -9,15 +9,13 @@
 //     marks the chosen block. Clicking the chosen block again reads it again, and a second click stops.
 // Highlights stay on their own side of the baseline.
 //
-// The temperature rows are named ("Temp", "Feels like") in a column on the left. When that column would
-// leave room for only a few blocks (large text, narrow screens), the names move above their rows.
+// The temperature graph has a legend at the top: "Temp" is the solid line with filled dots, "Feels like"
+// the dashed line with hollow dots. Its two rows of numbers under the graph are in that same order.
 window.Weather = window.Weather || {};
 
 Weather.hourly = (function () {
-  const LABEL_STEPS = [2, 3, 4, 6, 8, 12]; // hours per block (each divides 24)
-  const LABEL_GAP_REM = 0.8;               // space between neighboring numbers
-  const STACK_ABOVE_STEP = 4;              // names move above their rows if beside them allows fewer than 24/4 blocks
-  const DEFAULT_NAME_COLUMN_REM = 4.5;     // width of the row-name column until it has been measured
+  const LABEL_STEPS = [2, 3, 4, 6, 8, 12, 24]; // hours per block (each divides 24); 24 = one block for a
+                                               // whole day, for the largest text on a phone
   const PLOT_PAD = 12;                     // % of the temperature plot kept clear at the top and bottom
   const MIN_TEMP_SPAN = 10;                // degrees; stops a nearly flat day from looking dramatic
   const NOW_LABEL_FLIP = 80;               // % across: past this, the "Now" label sits left of its line
@@ -48,12 +46,8 @@ Weather.hourly = (function () {
 
   // kind: 'temp' or 'rain'. onSelectHour(hour) is called when someone chooses a time block.
   function create({ kind, graph, titleButton, dayPill, onSelectHour }) {
-    // The rain numbers explain themselves ("30%"), so only the temperature rows get names.
     const rows = kind === 'temp'
-      ? [
-        { key: 'temp', name: 'Temp', line: 'line-temp', className: 'hg-values' },
-        { key: 'feels', name: 'Feels like', line: 'line-feels', className: 'hg-values hg-feels' }
-      ]
+      ? [{ key: 'temp', className: 'hg-values' }, { key: 'feels', className: 'hg-values hg-feels' }]
       : [{ key: 'rain', className: 'hg-values' }];
     const format = (key, hour) => (key === 'rain' ? hour.rain + '%' : words.temp(hour[key]));
     const sentence = hour => (kind === 'temp' ? words.hourTemp(hour) : words.hourRain(hour));
@@ -62,20 +56,15 @@ Weather.hourly = (function () {
     let state = null;      // { hours, label, nowHour }; nowHour is the place's time (today only) or null
     let selectedHour = 0;  // any hour inside the chosen block
     let step = 0;          // hours per block; 0 forces a redraw
-    let stacked = false;   // row names above their rows instead of beside them
-    let nameColumnRem = DEFAULT_NAME_COLUMN_REM;
     const tabStops = { hour: 0, block: 0 }; // one Tab stop for the hours, one for the blocks
 
-    // Layout: a grid holding the plot, the hour row and each number row (with its name); a layer below
-    // the baseline with block dividers; and a layer of click targets over everything.
+    // Layout: the legend (temperature only); then a grid holding the plot, the hour row and each number
+    // row, a layer below the baseline with block dividers, and a layer of click targets over everything.
+    const legend = kind === 'temp' ? makeLegend() : null;
     const grid = el('div', 'hg hg-' + kind);
     const plot = cell('hg-plot hg-plot-' + kind);
     const hourRow = cell('hg-hours');
-    const names = [];
-    const valueRows = rows.map(row => {
-      if (row.name) names.push(rowName(row));
-      return cell(row.className);
-    });
+    const valueRows = rows.map(row => cell(row.className));
     const blockLayer = cell('hg-blocks');
     blockLayer.parentElement.classList.add('hg-blocks-cell');
     const hits = cell('hg-hits');
@@ -86,7 +75,7 @@ Weather.hourly = (function () {
     // A forecast saved before hourly numbers were added has none until the next refresh.
     const empty = el('p', 'hg-empty', 'The hour-by-hour forecast will appear the next time the weather is updated.');
     empty.hidden = true;
-    graph.replaceChildren(grid, empty);
+    graph.replaceChildren(...[legend, grid, empty].filter(Boolean));
     placeRows();
 
     function cell(className) {
@@ -97,34 +86,31 @@ Weather.hourly = (function () {
       return inner;
     }
 
-    // "Temp" and "Feels like" each show a sample of their line, so the rows explain the graph.
-    function rowName(row) {
-      const name = el('div', 'hg-label');
-      name.setAttribute('aria-hidden', 'true');
-      name.append(el('span', null, row.name));
-      const sample = svgEl('svg', { viewBox: '0 0 40 10', class: 'hg-sample' });
-      sample.append(svgEl('line', { x1: 3, y1: 5, x2: 37, y2: 5, class: row.line }));
-      name.append(sample);
-      grid.append(name);
-      return name;
+    // "Temp" and "Feels like", each with a sample of its line and dot. Screen readers skip it: every hour
+    // button already says both ("4 PM: 74 degrees, feels like 76").
+    function makeLegend() {
+      const box = el('div', 'hg-legend');
+      box.setAttribute('aria-hidden', 'true');
+      [['Temp', 'line-temp', 'hg-dot-temp'], ['Feels like', 'line-feels', 'hg-dot-feels']].forEach(([name, line, dot]) => {
+        const sample = el('span', 'hg-legend-sample');
+        const svg = svgEl('svg', { viewBox: '0 0 40 10', class: 'hg-sample' });
+        svg.append(svgEl('line', { x1: 3, y1: 5, x2: 37, y2: 5, class: line }));
+        sample.append(svg, el('span', 'hg-dot ' + dot));
+        const item = el('span', 'hg-legend-item');
+        item.append(sample, el('span', null, name));
+        box.append(item);
+      });
+      return box;
     }
 
-    // Beside: [name | numbers] on one grid row. Stacked: the name on its own grid row above the numbers.
+    // The plot, the hour row, then each number row; the dividers and click targets lie over them.
     function placeRows() {
-      grid.classList.toggle('hg-stacked', stacked);
-      grid.classList.toggle('hg-one-column', stacked || !names.length);
       plot.parentElement.style.gridRow = 1;
       hourRow.parentElement.style.gridRow = 2;
-      let next = 3;
-      valueRows.forEach((rowEl, i) => {
-        if (names[i]) {
-          names[i].style.gridRow = next;
-          if (stacked) next++;
-        }
-        rowEl.parentElement.style.gridRow = next++;
-      });
-      blockLayer.parentElement.style.gridRow = `2 / ${next}`; // below the baseline only
-      hits.parentElement.style.gridRow = `1 / ${next}`;
+      valueRows.forEach((rowEl, i) => { rowEl.parentElement.style.gridRow = 3 + i; });
+      const end = 3 + valueRows.length;
+      blockLayer.parentElement.style.gridRow = `2 / ${end}`; // below the baseline only
+      hits.parentElement.style.gridRow = `1 / ${end}`;
     }
 
     function render(day, label, nowHour, hour) {
@@ -137,6 +123,7 @@ Weather.hourly = (function () {
       const hours = Array.isArray(day.hours) ? day.hours : [];
       dayPill.textContent = label;
       grid.hidden = !hours.length;
+      if (legend) legend.hidden = !hours.length;
       empty.hidden = !!hours.length;
       if (!hours.length) {
         state = null;
@@ -196,8 +183,7 @@ Weather.hourly = (function () {
       return widest;
     }
 
-    // Picks the block size (and where the row names go) for the current width and text size,
-    // and redraws if either changed.
+    // Picks the block size for the current width and text size, and redraws if it changed.
     function layout() {
       if (!state) return;
       if (!plot.clientWidth) return; // hidden; runs again when shown
@@ -205,28 +191,12 @@ Weather.hourly = (function () {
       const hours = state.hours;
       const n = hours.length;
 
-      const spacing = LABEL_GAP_REM * remPx + Math.max(
+      // The space between numbers comes from the CSS (--hg-label-gap): tighter on phones.
+      const gapRem = parseFloat(getComputedStyle(grid).getPropertyValue('--hg-label-gap')) || 0.8;
+      const spacing = gapRem * remPx + Math.max(
         widestPx(hourRow, ['12 AM', '10 AM', '10 PM', 'Noon']),
         ...valueRows.map((rowEl, i) => widestPx(rowEl, hours.map(h => format(rows[i].key, h)))));
-      const stepFor = width => LABEL_STEPS.find(s => width * s / n >= spacing) || LABEL_STEPS[LABEL_STEPS.length - 1];
-
-      if (names.length && !stacked) {
-        const gap = parseFloat(getComputedStyle(grid).columnGap) || 0;
-        nameColumnRem = (Math.max(...names.map(nm => nm.offsetWidth)) + gap) / remPx;
-      }
-      const nameColumnPx = names.length ? nameColumnRem * remPx : 0;
-      const widthStacked = plot.clientWidth + (stacked ? 0 : nameColumnPx);
-      const widthBeside = widthStacked - nameColumnPx;
-      const stepBeside = stepFor(widthBeside);
-      const stepStacked = stepFor(widthStacked);
-      const wantStacked = names.length > 0 && stepBeside > STACK_ABOVE_STEP && stepStacked < stepBeside;
-      const newStep = wantStacked ? stepStacked : stepBeside;
-
-      if (wantStacked !== stacked) {
-        stacked = wantStacked;
-        placeRows();
-        step = 0;
-      }
+      const newStep = LABEL_STEPS.find(s => plot.clientWidth * s / n >= spacing) || LABEL_STEPS[LABEL_STEPS.length - 1];
       if (newStep !== step) {
         step = newStep;
         draw();

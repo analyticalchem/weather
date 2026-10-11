@@ -11,6 +11,7 @@ The app is live at https://analyticalchem.github.io/weather/ (repository `analyt
 - **0.4.0:** live weather, places, offline use, and severe weather alerts (Phases 2 and 3), built on the other computer.
 - **0.5.0:** hour-by-hour graphs, with rain above temperature, merged on top of 0.4.0. These changes came from the owner's test session with the person.
 - **0.6.0:** Phase 4 accessibility pass (screen reader, keyboard and contrast), plus a °F/°C setting with Fahrenheit as the default.
+- **0.6.1:** the temperature legend moved to the top of its graph, and phones (portrait iPhone) lay everything out correctly.
 
 All planned phases are done. See `PLAN.md` for every decision made so far, what's left, and the test checklist. See `DEPLOY.md` for publishing. Ask the owner before any `git push`.
 
@@ -29,15 +30,22 @@ All planned phases are done. See `PLAN.md` for every decision made so far, what'
 
   Don't add information to the main screen without the owner agreeing.
 - **Never rely on color alone.** Chosen options show a ✓, and an arrow that can't go further turns hollow.
-- **Never rely on dragging alone.** The 7-day charts also move with the big arrow buttons, a trackpad swipe and the arrow keys. They always come to rest on whole days and always scroll together.
+- **Never rely on dragging alone.** The 7-day charts also move with the big arrow buttons, a trackpad swipe and the arrow keys. They always come to rest on whole days and always scroll together. How many days show at once is measured from the widest day name plus its highlight, so a name is never clipped.
+- **Phones (narrower than 40rem) get their own layout,** in the media query at the end of `css/app.css`:
+  - The arrows move below the chart, graph or town name they control, as two wide buttons.
+  - The current temperature is capped so it always fits the screen.
+  - Hourly numbers use tighter spacing (`--hg-label-gap`).
+  - A word too long for the screen breaks with a hyphen rather than running off the edge.
+
+  Check iPhone sizes (375, 390 and 430 wide) at text sizes 1, 4 and 7 after layout changes. Nothing should be clipped or overlap, and the page should never scroll sideways.
 - **One chosen day drives both sections.** Clicking a day in either 7-day chart, or using either hourly graph's arrows, chooses that day for both hour-by-hour graphs, and the charts scroll to keep it in view. The chosen day's name is inverted in both charts and matches the day label on both graphs.
 - **Hour-by-hour graphs are split at the baseline.**
   - **Above it,** every hour is its own target. Pointing at a bar or point highlights just that hour; clicking it chooses that hour's block and reads just that hour.
-  - **Below it** are time blocks. Only each block's first hour gets numbers, and `js/hourly.js` measures the numbers to pick a block size (2 to 12 hours) where they never overlap. Clicking a block chooses it for both graphs and reads its hours.
+  - **Below it** are time blocks. Only each block's first hour gets numbers, and `js/hourly.js` measures the numbers to pick a block size (2 to 12 hours) where they never overlap. A single "All day" block is the last resort, for the largest text on a small phone. Clicking a block chooses it for both graphs and reads its hours.
   - **Highlights:** the chosen block has a thick line around it, and pointing at any other block draws a thin line around exactly the same box. Hours follow the same pattern: a thin outline when pointed at, and a thick one of the same size while read. Highlights never cross the baseline.
   - **No panels** under the graphs (the owner removed them).
   - **Starting block:** the chosen block starts at the place's current hour (in the place's own time zone) and stays the same when the day changes. Today's graphs show a "Now" line.
-- **Temperature and feels-like are told apart by line style** (solid or dashed) and dot style (filled or hollow), not by color. When space is tight, the "Temp" and "Feels like" names move above their rows.
+- **Temperature and feels-like are told apart by line style** (solid or dashed) and dot style (filled or hollow), not by color. A legend at the top of the temperature graph shows both ("Temp", then "Feels like"), and the two rows of numbers under the graph are in the same order.
 - **Speech only follows a click.**
   - It never speaks when the app opens.
   - It speaks on Read aloud and when an item is clicked (click-to-hear). It can also say the town name after switching places, but that's off by default.

@@ -6,7 +6,8 @@ window.Weather = window.Weather || {};
 
 Weather.charts = (function () {
   const DRAG_START_PX = 10;      // a press that moves less than this is a click (and chooses the day), not a drag
-  const MIN_DAY_WIDTH_REM = 8.5; // when days would be narrower than this, fewer are shown at once
+  const MIN_DAY_WIDTH_REM = 6;   // never narrower than this, even when every day name is short
+  const DAY_NAME_ROOM_REM = 1.5; // room beside the widest day name: its inverted highlight plus a margin
   const MAX_VISIBLE = 3;
   const TEMP_PLOT_REM = 7;       // height from the week's highest high to its lowest low
   const RAIN_PLOT_REM = 5.5;     // height of a 100% rain bar
@@ -129,13 +130,29 @@ Weather.charts = (function () {
       const width = tracks[0].clientWidth;
       if (!width) return; // hidden (another screen is showing); runs again when shown
       const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
-      const fit = Math.floor(width / (MIN_DAY_WIDTH_REM * remPx));
+      const fit = Math.floor(width / Math.max(MIN_DAY_WIDTH_REM * remPx, widestDayName() + DAY_NAME_ROOM_REM * remPx));
       visible = clamp(fit, 1, Math.min(MAX_VISIBLE, days.length || MAX_VISIBLE));
       tracks.forEach(t => t.style.setProperty('--visible', visible));
       stopAnimation();
       offset = clamp(Math.round(offset), 0, maxOffset());
       applyScroll();
       updateControls();
+    }
+
+    // Widest day name this week ("Wednesday" is usually the longest), measured in the charts' own font, so
+    // a day is never shown narrower than its name.
+    function widestDayName() {
+      const probe = el('span', 'day-name');
+      probe.style.position = 'absolute';
+      probe.style.visibility = 'hidden';
+      tracks[0].append(probe);
+      let widest = 0;
+      labels.forEach(label => {
+        probe.textContent = label;
+        widest = Math.max(widest, probe.offsetWidth);
+      });
+      probe.remove();
+      return widest;
     }
 
     function applyScroll() {
