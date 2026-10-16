@@ -116,10 +116,14 @@
     graphs.forEach(g => g.refresh());
   }
 
-  // The sentence an item speaks also becomes its screen reader label.
-  function readable(el, say) {
+  // say: the sentence the app reads out when the item is clicked.
+  // label: the screen reader name, only when the visible text alone is too short, and it must
+  // start with that visible text (WCAG 2.5.3, so voice control users can say what they see).
+  // Without one, the name is the visible text plus any visually hidden words inside the item.
+  function readable(el, say, label) {
     el.dataset.say = say;
-    el.setAttribute('aria-label', say);
+    if (label) el.setAttribute('aria-label', label);
+    else el.removeAttribute('aria-label');
   }
 
   // --- Main screen ------------------------------------------------------------------------------
@@ -166,11 +170,18 @@
     const key = place.id + JSON.stringify(list.map(x => [x.alert.id, x.until]));
     if (key === shownAlerts) return;
     shownAlerts = key;
-    $('alerts').replaceChildren(...list.map(({ alert, until }) => {
+    // Each banner's name is what it shows ("Flash Flood Warning Until 7:00 PM"); what to do is its
+    // screen reader description, from a hidden element beside it.
+    $('alerts').replaceChildren(...list.flatMap(({ alert, until }, i) => {
+      const what = document.createElement('span');
+      what.id = 'alert-what-' + i;
+      what.hidden = true;
+      what.textContent = alert.instruction || alert.details;
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'alert readable';
       b.dataset.alertId = alert.id;
+      if (what.textContent) b.setAttribute('aria-describedby', what.id);
       b.innerHTML = ALERT_ICON;
       const text = document.createElement('span');
       text.className = 'alert-text';
@@ -186,7 +197,7 @@
       }
       b.append(text);
       readable(b, words.alertSay(alert, until));
-      return b;
+      return [b, what];
     }));
   }
 
@@ -203,7 +214,7 @@
     const place = currentPlace();
     const fresh = W.alerts.get(place.id).filter(a => !W.alerts.isAnnounced(place.id, a));
     if (!fresh.length) return;
-    const banners = [...$('alerts').children];
+    const banners = [...$('alerts').querySelectorAll('.alert')];
     const parts = fresh.map((alert, i) => {
       const until = words.until(alert.ends, place.timezone);
       return {
@@ -249,7 +260,7 @@
     const today = forecast.days[0];
     labels = words.dayLabels(forecast.days.map(d => d.date));
     setText($('now-temp'), words.temp(forecast.current.temp));
-    readable($('now-temp'), words.nowTemp(forecast.current));
+    readable($('now-temp'), words.nowTemp(forecast.current), words.nowTempName(forecast.current));
     setText($('now-high'), 'High ' + words.temp(today.high));
     setText($('now-low'), 'Low ' + words.temp(today.low));
     readable($('now-hilo'), words.hiLo(today));
@@ -356,7 +367,7 @@
     const entry = W.forecast.get(place.id);
     const notice = $('notice');
     const parts = [{ text: place.spokenName + '.', els: [$('place-name')] }];
-    [...$('alerts').children].forEach(b => parts.push({ text: b.dataset.say, els: [b] }));
+    $('alerts').querySelectorAll('.alert').forEach(b => parts.push({ text: b.dataset.say, els: [b] }));
     if (!notice.hidden) parts.push({ text: notice.dataset.say, els: [notice] });
     if (!entry) return parts;
     const forecast = entry.forecast;
@@ -522,7 +533,7 @@
       case 'color': return `Color. Currently ${onOff(s.color)}.`;
       case 'colors': return 'Color choices. Compare six high-contrast color combinations.';
       case 'rate': return `Reading speed. Currently ${settings.RATE_STEPS[s.rate].label.toLowerCase()}.`;
-      case 'readAll': return `The read aloud button reads ${s.readAll === 'week' ? 'the whole week' : 'today only'}.`;
+      case 'readAll': return `Read aloud button reads ${s.readAll === 'week' ? 'the whole week' : 'today only'}.`;
       case 'tapToRead': return `Read items when clicked. Currently ${onOff(s.tapToRead)}.`;
       case 'sayTown': return `Say the town name when switching places. Currently ${onOff(s.sayTown)}.`;
       case 'units': return `Temperature units. Currently ${s.units === 'c' ? 'Celsius' : 'Fahrenheit'}.`;
@@ -542,7 +553,11 @@
     document.querySelectorAll('.choice[data-setting]').forEach(b => {
       b.setAttribute('aria-pressed', String(s[b.dataset.setting] === parseValue(b.dataset.value)));
     });
-    document.querySelectorAll('[data-about]').forEach(b => readable(b, aboutSetting(b.dataset.about, s)));
+    // Each sentence starts with the setting's visible title, so it can also be the screen reader name.
+    document.querySelectorAll('[data-about]').forEach(b => {
+      const about = aboutSetting(b.dataset.about, s);
+      readable(b, about, about);
+    });
     renderPlaces();
     $('version').textContent = `Weather ${VERSION}`;
     showUpdateNote();
@@ -824,14 +839,15 @@
       b.dataset.bg = p.bg;
       b.dataset.palette = p.palette;
       b.dataset.preset = i;
-      b.setAttribute('aria-label', `${i + 1}. ${p.name}`);
+      // The name is the visible "1. White on black" (WCAG 2.5.3). The sample and "✓ Chosen" are
+      // hidden from screen readers, which hear "pressed" instead.
       b.innerHTML = `
         <span class="sw-sample" aria-hidden="true">
           <span class="sw-num">72&deg;</span>
           <span class="sw-temp"></span>
           <span class="sw-rain"></span>
         </span>
-        <span class="sw-name" aria-hidden="true">${i + 1}. ${p.name}</span>
+        <span class="sw-name">${i + 1}. ${p.name}</span>
         <span class="sw-chosen" aria-hidden="true">✓ Chosen</span>`;
       return b;
     }));

@@ -12,6 +12,7 @@ The app is live at https://analyticalchem.github.io/weather/ (repository `analyt
 - **0.5.0:** hour-by-hour graphs, with rain above temperature, merged on top of 0.4.0. These changes came from the owner's test session with the person.
 - **0.6.0:** Phase 4 accessibility pass (screen reader, keyboard and contrast), plus a °F/°C setting with Fahrenheit as the default.
 - **0.6.1:** the temperature legend moved to the top of its graph, and phones (portrait iPhone) lay everything out correctly.
+- **0.6.2:** accessibility fixes from the owner's automated checker: screen reader names start with the visible text (WCAG 2.5.3), the chart day names are measured again if text spacing changes, and the static page has fallback text and named landmarks.
 
 All planned phases are done. See `PLAN.md` for every decision made so far, what's left, and the test checklist. See `DEPLOY.md` for publishing. Ask the owner before any `git push`.
 
@@ -51,14 +52,23 @@ All planned phases are done. See `PLAN.md` for every decision made so far, what'
   - It speaks on Read aloud and when an item is clicked (click-to-hear). It can also say the town name after switching places, but that's off by default.
   - The one exception is "Read new warnings aloud" (off by default). It reads each new weather warning once, and only after the first click or key press since the app opened.
   - While anything is speaking, the Read aloud button becomes "Stop reading". Clicking it, clicking the same item again, or pressing Escape stops speech.
-- **Everything on the main screen can be clicked to hear it.** Each item is a `.readable` button whose `data-say` sentence comes from `js/words.js`, and that sentence is also its `aria-label`.
+- **Everything on the main screen can be clicked to hear it.** Each item is a `.readable` button whose `data-say` sentence (what the app reads out) comes from `js/words.js`.
+- **Screen reader names start with what's on screen** (WCAG 2.5.3 Label in Name, so voice control users can say what they see).
+  - An item's name is its visible text plus visually hidden words where the numbers need them, such as "Today high 59° low 45°" or "Rain 26% chance today".
+  - Or it's an `aria-label` that starts with the visible text, such as "51° right now, mostly sunny" or "Days 1–3 of 7: Today, Tomorrow, and Sunday".
+  - Never use an `aria-label` that drops or reorders the visible text, such as the spoken sentence.
+  - The `readable(el, say, label)` helpers in `js/app.js`, `js/charts.js` and `js/hourly.js` do this.
+  - Only targets with no text of their own (the hourly graphs' hours and blocks) take a free-form `aria-label`.
+  - A warning banner's instructions are its `aria-describedby` description.
+  - Visually hidden text (`.visually-hidden`) must sit inside a positioned element, or hidden words in off-screen days stretch the page.
 - **Quiet refreshes never move anything.** New weather keeps the charts' position, the chosen day and block, and keyboard focus. A refresh that arrives while something is being read waits until reading stops.
 - **Settings opens only after a 2-second press and hold.** Keyboard and screen-reader activation opens it directly.
 - **No disabled buttons,** because they're low contrast. Use `aria-disabled` with the high-contrast hollow style instead.
 - **No motion** except the short chart slide, which is skipped when `prefers-reduced-motion` is on.
 - **Double-click protection:** clicks are ignored for 500 ms after the screen changes.
 - **Fahrenheit is the default.** Forecasts are stored in °F. `words.temp()` and `words.spoken()` convert to the person's units, so every temperature must go through them; Celsius is an option in Settings.
-- **Screen readers hear buttons, not drawings.** The hourly graphs' drawing and number rows are `aria-hidden`; the hour and block buttons carry the full sentences. Each screen is a `<main>` element, and only one is shown at a time. Re-run axe-core on all three screens after changes; 0.6.0 has no violations.
+- **Screen readers hear buttons, not drawings.** The hourly graphs' drawing and number rows are `aria-hidden`; the hour and block buttons carry the full sentences. Each screen is a `<main>` element with its own name, and only one is shown at a time.
+- **Check accessibility before every release** with the owner's checker (the `accessibility-check` skill). It turns on axe's Label in Name rule, which a default axe run skips; that's how 0.6.0's "no violations" missed 13 failures. The checker only sees the main screen as it first loads, so also run axe on Settings, the place search results, Color choices and a warning banner, at 1280 and 320 px. 0.6.2 has no failures on any of them.
 - **Font:** Atkinson Hyperlegible Next, bold or extra-bold, falling back to Verdana. It's hosted with the app in `fonts/` (OFL license), so it works offline.
 
 ## Code layout

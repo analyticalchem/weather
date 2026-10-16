@@ -48,10 +48,16 @@ Weather.charts = (function () {
     const maxOffset = () => Math.max(0, days.length - visible);
     const dayWidth = () => tracks[0].clientWidth / visible;
 
-    function readable(node, say) {
+    // say: the sentence the app reads out. label (optional): a screen reader name that starts with
+    // the visible text (WCAG 2.5.3). Day buttons have none: their name is their visible text plus
+    // the visually hidden words "high", "low" and "chance of rain".
+    function readable(node, say, label) {
       node.dataset.say = say;
-      node.setAttribute('aria-label', say);
+      if (label) node.setAttribute('aria-label', label);
+      else node.removeAttribute('aria-label');
     }
+
+    const hidden = text => el('span', 'visually-hidden', text);
 
     function tempDay(day, i, top, range) {
       const b = el('button', 'day temp-day readable');
@@ -62,8 +68,8 @@ Weather.charts = (function () {
       gap.style.height = ((top - day.high) / range * TEMP_PLOT_REM).toFixed(2) + 'rem';
       const bar = el('span', 'temp-bar');
       bar.style.height = Math.max(MIN_BAR_REM, (day.high - day.low) / range * TEMP_PLOT_REM).toFixed(2) + 'rem';
-      b.append(el('span', 'day-name', labels[i]), gap, el('span', 'temp-num', words.temp(day.high)), bar,
-        el('span', 'temp-num', words.temp(day.low)));
+      b.append(el('span', 'day-name', labels[i]), gap, hidden(' high '), el('span', 'temp-num', words.temp(day.high)), bar,
+        hidden(' low '), el('span', 'temp-num', words.temp(day.low)));
       return b;
     }
 
@@ -75,7 +81,7 @@ Weather.charts = (function () {
       const plot = el('span', 'rain-plot');
       const bar = el('span', 'rain-bar');
       bar.style.height = (day.rain / 100 * RAIN_PLOT_REM).toFixed(2) + 'rem';
-      plot.append(el('span', 'rain-num', day.rain + '%'), bar);
+      plot.append(el('span', 'rain-num', day.rain + '%'), hidden(' chance of rain '), bar);
       b.append(plot, el('span', 'rain-base'), el('span', 'day-name', labels[i]));
       return b;
     }
@@ -96,6 +102,10 @@ Weather.charts = (function () {
       const range = Math.max(1, top - Math.min(...days.map(d => d.low)));
       charts.forEach(c => {
         c.track.replaceChildren(...days.map((d, i) => (c.kind === 'temp' ? tempDay(d, i, top, range) : rainDay(d, i))));
+        if (c === charts[0]) {
+          textObserver.disconnect();
+          c.track.querySelectorAll('.day-name').forEach(n => textObserver.observe(n));
+        }
         setTabStop(c.track, 0);
       });
       stopAnimation();
@@ -166,10 +176,10 @@ Weather.charts = (function () {
       const text = first === last
         ? `Day ${first + 1} of ${days.length}`
         : `Days ${first + 1}–${last + 1} of ${days.length}`;
-      const say = words.range(labels.slice(first, last + 1), days.length);
+      const shown = labels.slice(first, last + 1);
       charts.forEach(c => {
         c.rangeButton.textContent = text;
-        readable(c.rangeButton, say);
+        readable(c.rangeButton, words.range(shown, days.length), words.rangeName(text, shown));
         c.prevButton.setAttribute('aria-disabled', String(first <= 0));
         c.nextButton.setAttribute('aria-disabled', String(first >= maxOffset()));
         // Keep each chart's single Tab stop on a day that is on screen.
@@ -347,6 +357,10 @@ Weather.charts = (function () {
     });
 
     new ResizeObserver(layout).observe(tracks[0]);
+    // When the text itself changes size (the font arriving, or someone widening the letter and word
+    // spacing, WCAG 1.4.12), measure the day names again. Waits a frame so it never runs inside a resize.
+    const textObserver = new ResizeObserver(() => requestAnimationFrame(layout));
+    if (document.fonts) document.fonts.ready.then(layout);
 
     return {
       render,

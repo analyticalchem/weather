@@ -67,6 +67,7 @@
 | — | Hour-by-hour graphs, and rain moved above temperature | **Done** (0.5.0, built on a second computer and merged on top of 0.4.0) |
 | 4 | Testing with the person, then a screen-reader, keyboard and contrast check, then polish | **Done** (0.6.0) |
 | — | Legend at the top of the temperature graph; correct layout on phones | **Done** (0.6.1) |
+| — | Fixes from the owner's automated accessibility checker | **Done** (0.6.2) |
 
 ### What Phases 2 and 3 built (0.4.0)
 - **Forecast:** Open-Meteo (free, no key). It fetches the current temperature and conditions in plain words ("Partly cloudy"), plus the 7-day high, low and rain chance, in °F in the place's own time zone. Since 0.5.0, it also fetches hourly temperature, feels-like and rain chance.
@@ -89,6 +90,18 @@
 - **Keyboard pass:** with real key presses, Tab order is logical on every screen, focus is always shown with a thick outline, Enter opens Settings, and Escape goes back.
   - Fixed: in the hourly graphs, Tab now lands on the current hour and the chosen block, instead of always on midnight and the first block.
 - **°F/°C setting:** Settings → Temperature units, with Fahrenheit as the default. Forecasts stay in °F and are converted only for display and speech.
+
+### Accessibility checker fixes (0.6.2)
+The owner's automated checker (axe with its experimental rules, HTML validation, reflow and text spacing) found 13 failures in 0.6.1, all of one kind.
+- **Fixed, Label in Name (WCAG 2.5.3):** every readable item's screen reader name was its spoken sentence ("Today's high is 59 degrees…"), which doesn't contain the visible text ("High 59° Low 45°"). Voice control users say what they see, so the name has to contain it.
+  - Names now start with the visible text, with visually hidden words where needed ("Today high 59° low 45°").
+  - The app's own read-aloud sentences didn't change.
+  - Also fixed on screens the checker doesn't open: Settings place names, Color choices and warning banners. A banner's instructions are now its description.
+- **Fixed, static page warnings:** fallback text in elements that the script fills, the weather hidden until it's drawn, and a name for the main screen's landmark.
+- **Text spacing:** the chart day names are measured again if letter or word spacing changes after the page loads.
+- **Checked:** the checker passes. axe finds nothing on Settings, search results, Color choices, a warning banner or the notice, in light and dark at 1280 and 320 px. iPhone widths at text sizes 1, 4 and 7 and wide text spacing all fit.
+- **Known, not fixed:** at 320 px with the largest text size, day names are wider than the one day shown. 0.6.1 does the same; it's beyond what WCAG asks (about 7× zoom) and narrower than any iPhone.
+- **Lesson:** 0.6.0's axe run reported no violations because a default axe run skips the Label in Name rule. Use the owner's checker.
 
 ### Ideas not yet built (ask the owner first)
 - A "Use my location" button for adding a place (in the original plan; not built in 0.4.0).

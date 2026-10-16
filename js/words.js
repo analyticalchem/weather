@@ -188,6 +188,11 @@ Weather.words = (function () {
       count > 1 ? `${place.spokenName}. Place ${index + 1} of ${count}.` : `${place.spokenName}.`,
     nowTemp: current =>
       `It's ${spoken(current.temp)} degrees right now.` + (current.condition ? ` ${current.condition}.` : ''),
+    // Screen reader names start with the visible text (WCAG 2.5.3). The sentences around them are
+    // what the app itself reads out.
+    nowTempName: current =>
+      `${temp(current.temp)} right now` + (current.condition ? `, ${current.condition.toLowerCase()}` : ''),
+    rangeName: (shownText, shown) => `${shownText}: ${list(shown)}`,
     hiLo: day => `Today's high is ${spoken(day.high)} degrees, and the low is ${spoken(day.low)}.`,
     rainToday: day => `${day.rain} percent chance of rain today.`,
     tempDay: (day, label) => `${label}: high of ${spoken(day.high)}, low of ${spoken(day.low)}.`,

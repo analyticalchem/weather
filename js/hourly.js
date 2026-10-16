@@ -37,9 +37,13 @@ Weather.hourly = (function () {
     return node;
   }
 
-  function readable(node, say) {
+  // say: the sentence the app reads out. label: the screen reader name, for the hour targets, which
+  // show no text of their own. Items with visible text (the title) get none, so their name is what
+  // they show (WCAG 2.5.3).
+  function readable(node, say, label) {
     node.dataset.say = say;
-    node.setAttribute('aria-label', say);
+    if (label) node.setAttribute('aria-label', label);
+    else node.removeAttribute('aria-label');
   }
 
   const pct = (index, n) => (index / n * 100).toFixed(3) + '%';
@@ -249,7 +253,7 @@ Weather.hourly = (function () {
         b.dataset.hour = h.hour;
         b.style.left = pct(i, n);
         b.style.width = pct(1, n);
-        readable(b, sentence(h));
+        readable(b, sentence(h), sentence(h));
         return b;
       }));
       drawBlocks();

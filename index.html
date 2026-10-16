@@ -14,10 +14,11 @@
   <!-- Applies the saved theme and text size before the page is drawn. -->
   <script src="js/settings.js"></script>
 </head>
-<body>
+<!-- no-forecast keeps the weather hidden until js/app.js has drawn it (or shown why it can't). -->
+<body class="no-forecast">
 
   <!-- ===================== Main screen ===================== -->
-  <main id="view-main" class="view">
+  <main id="view-main" class="view" aria-label="Weather">
 
     <header class="place-bar">
       <button type="button" class="arrow-btn" id="place-prev" aria-label="Previous place">
@@ -25,7 +26,7 @@
       </button>
       <h1 class="place-title">
         <button type="button" class="place-name readable" id="place-name">
-          <span class="place-name-text" id="place-name-text"></span>
+          <span class="place-name-text" id="place-name-text">Weather</span>
           <span class="place-count" id="place-count"></span>
         </button>
       </h1>
@@ -43,14 +44,14 @@
     </div>
 
     <section class="now" aria-label="Right now">
-      <button type="button" class="now-temp readable" id="now-temp"></button>
+      <button type="button" class="now-temp readable" id="now-temp">Now</button>
       <button type="button" class="now-hilo readable" id="now-hilo">
-        <span id="now-high"></span>
-        <span id="now-low"></span>
+        <span id="now-high">High</span>
+        <span id="now-low">Low</span>
       </button>
       <button type="button" class="now-rain readable" id="now-rain">
         <span class="now-rain-label">Rain</span>
-        <span class="now-rain-value" id="now-rain-value"></span>
+        <span class="now-rain-value" id="now-rain-value"></span><span class="visually-hidden"> chance today</span>
       </button>
       <button type="button" class="action-btn read-btn" id="read-btn">
         <svg class="icon-speak" viewBox="0 0 24 24" aria-hidden="true">
@@ -68,7 +69,7 @@
     <section class="chart-group" aria-labelledby="rain-title">
       <div class="chart-head">
         <h2 class="chart-title" id="rain-title">Chance of rain</h2>
-        <button type="button" class="day-range readable" id="rain-range"></button>
+        <button type="button" class="day-range readable" id="rain-range">Days</button>
       </div>
       <div class="chart-body">
         <button type="button" class="arrow-btn" id="rain-days-prev" aria-label="Earlier days">
@@ -104,7 +105,7 @@
     <section class="chart-group" aria-labelledby="temp-title">
       <div class="chart-head">
         <h2 class="chart-title" id="temp-title">Temperature</h2>
-        <button type="button" class="day-range readable" id="temp-range"></button>
+        <button type="button" class="day-range readable" id="temp-range">Days</button>
       </div>
       <div class="chart-body">
         <button type="button" class="arrow-btn" id="temp-days-prev" aria-label="Earlier days">
@@ -252,7 +253,7 @@
       <button type="button" class="action-btn" id="add-place">Add a place</button>
 
       <form class="place-search" id="place-search" hidden>
-        <h3 class="search-title" id="search-title" tabindex="-1"></h3>
+        <h3 class="search-title" id="search-title" tabindex="-1">Add a place</h3>
         <label class="search-label" for="place-query">Town name or ZIP code</label>
         <div class="search-row">
           <input class="search-input" id="place-query" type="text" autocomplete="off" autocapitalize="words"
